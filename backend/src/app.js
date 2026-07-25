@@ -24,6 +24,7 @@ const complianceRoutes = require('./routes/compliance');
 const sipRoutes = require('./routes/sip');
 const stakeholderRoutes = require('./routes/stakeholders');
 const correspondenceRoutes = require('./routes/correspondence');
+const standaloneRoutes = require('./routes/standalone');
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api', complianceRoutes);
 app.use('/api', sipRoutes);
 app.use('/api', stakeholderRoutes);
 app.use('/api', correspondenceRoutes);
+app.use('/api', standaloneRoutes);
 
 app.use((err, req, res, _next) => {
   if (err.code === 'LIMIT_FILE_SIZE') {

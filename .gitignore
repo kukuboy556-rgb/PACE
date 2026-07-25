@@ -10,3 +10,5 @@ dist/
 plane-source/
 backend/.env
 frontend/.env
+
+.vercel
