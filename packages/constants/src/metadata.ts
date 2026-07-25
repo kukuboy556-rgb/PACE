@@ -4,20 +4,20 @@
  * See the LICENSE file for details.
  */
 
-export const SITE_NAME = "Plane | Simple, extensible, open-source project management tool.";
-export const SITE_TITLE = "Plane | Simple, extensible, open-source project management tool.";
+export const SITE_NAME = "PACE | Program And project Coordination Engine";
+export const SITE_TITLE = "PACE | Program And project Coordination Engine";
 export const SITE_DESCRIPTION =
-  "Open-source project management tool to manage work items, cycles, and product roadmaps easily";
+  "PACE is a school project management tool to manage programs, tasks, budgets, and compliance.";
 export const SITE_KEYWORDS =
-  "software development, plan, ship, software, accelerate, code management, release management, project management, work items tracking, agile, scrum, kanban, collaboration";
-export const SITE_URL = "https://app.plane.so/";
-export const TWITTER_USER_NAME = "Plane | Simple, extensible, open-source project management tool.";
+  "school, projects, programs, tasks, budget, compliance, DepEd, coordination, project management, kanban";
+export const SITE_URL = "https://pace.edu.ph/";
+export const TWITTER_USER_NAME = "PACE";
 
-// Plane Sites Metadata
-export const SPACE_SITE_NAME = "Plane Publish | Make your Plane boards and roadmaps pubic with just one-click. ";
-export const SPACE_SITE_TITLE = "Plane Publish | Make your Plane boards public with one-click";
-export const SPACE_SITE_DESCRIPTION = "Plane Publish is a customer feedback management tool built on top of plane.so";
+// PACE Sites Metadata
+export const SPACE_SITE_NAME = "PACE Publish | Share your project boards and roadmaps.";
+export const SPACE_SITE_TITLE = "PACE Publish | Share your project boards and roadmaps.";
+export const SPACE_SITE_DESCRIPTION = "PACE Publish shares project boards with school stakeholders.";
 export const SPACE_SITE_KEYWORDS =
-  "software development, customer feedback, software, accelerate, code management, release management, project management, work items tracking, agile, scrum, kanban, collaboration";
-export const SPACE_SITE_URL = "https://app.plane.so/";
-export const SPACE_TWITTER_USER_NAME = "planepowers";
+  "school, projects, programs, tasks, budget, compliance, DepEd, coordination, project management";
+export const SPACE_SITE_URL = "https://pace.edu.ph/";
+export const SPACE_TWITTER_USER_NAME = "pace";

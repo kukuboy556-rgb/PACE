@@ -25,29 +25,29 @@ import icon512 from "@/app/assets/icons/icon-512x512.png?url";
 import { AppProvider } from "./provider";
 
 export const meta = () => [
-  { title: "Plane | Simple, extensible, open-source project management tool." },
+  { title: "PACE | Program And project Coordination Engine" },
   { name: "description", content: SITE_DESCRIPTION },
   {
     name: "keywords",
     content:
-      "software development, plan, ship, software, accelerate, code management, release management, project management, work item tracking, agile, scrum, kanban, collaboration",
+      "school, projects, programs, tasks, budget, compliance, DepEd, coordination, project management, kanban",
   },
   {
     name: "viewport",
     content:
       "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
   },
-  { property: "og:title", content: "Plane | Simple, extensible, open-source project management tool." },
+  { property: "og:title", content: "PACE | Program And project Coordination Engine" },
   {
     property: "og:description",
-    content: "Open-source project management tool to manage work items, cycles, and product roadmaps easily",
+    content: "PACE is a school project management tool to manage programs, tasks, budgets, and compliance.",
   },
-  { property: "og:url", content: "https://app.plane.so/" },
-  { property: "og:image", content: "https://app.plane.so/og-image.png" },
+  { property: "og:url", content: "https://pace.edu.ph/" },
+  { property: "og:image", content: "/og-image.png" },
   { property: "og:image:width", content: "1200" },
   { property: "og:image:height", content: "630" },
-  { property: "og:image:alt", content: "Plane - Modern project management" },
-  { name: "twitter:site", content: "@planepowers" },
+  { property: "og:image:alt", content: "PACE - School Project Management" },
+  { name: "twitter:site", content: "@paceph" },
   { name: "twitter:card", content: "summary_large_image" },
   { name: "twitter:image", content: "https://app.plane.so/og-image.png" },
   { name: "twitter:image:width", content: "1200" },
