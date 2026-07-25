@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PACE - DepEd PDO</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f5f6fa;
+  --sidebar: #1e1f2b;
+  --sidebar-hover: #2a2b3d;
+  --sidebar-active: #f97316;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --primary: #f97316;
+  --primary-hover: #ea580c;
+  --success: #22c55e;
+  --warning: #eab308;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.12);
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+html { font-size: 14px; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; overflow: hidden; height: 100vh; }
+.layout { display: flex; height: 100vh; }
+.sidebar { width: 240px; background: var(--sidebar); color: #fff; display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+.sidebar-header { padding: 20px 16px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.sidebar-header h1 { font-size: 1.15rem; font-weight: 700; color: #fff; }
+.sidebar-header p { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 2px; }
+.nav { padding: 8px 0; flex: 1; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,0.7); cursor: pointer; transition: all 0.15s; font-size: 0.85rem; border-left: 3px solid transparent; }
+.nav-item:hover { background: var(--sidebar-hover); color: #fff; }
+.nav-item.active { background: rgba(249,115,22,0.12); color: var(--primary); border-left-color: var(--primary); }
+.nav-item .icon { width: 18px; text-align: center; font-size: 1rem; flex-shrink: 0; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.topbar h2 { font-size: 1.1rem; font-weight: 600; }
+.topbar .subtitle { font-size: 0.8rem; color: var(--muted); }
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+.page { display: none; }
+.page.active { display: block; }
+
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); }
+.card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.card-header h3 { font-size: 0.95rem; font-weight: 600; }
+.card-body { padding: 20px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+.stat { text-align: center; padding: 16px; }
+.stat .value { font-size: 1.8rem; font-weight: 700; line-height: 1.2; }
+.stat .label { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+.stat .sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border: none; border-radius: 6px; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary { background: #f3f4f6; color: var(--text); }
+.btn-secondary:hover { background: #e5e7eb; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+.btn-xs { padding: 3px 8px; font-size: 0.72rem; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { background: #f9fafb; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 500; }
+.badge-planning { background: #fef3c7; color: #92400e; }
+.badge-ongoing { background: #dbeafe; color: #1e40af; }
+.badge-completed { background: #d1fae5; color: #065f46; }
+.badge-reported { background: #e0e7ff; color: #3730a3; }
+.badge-pending { background: #fef3c7; color: #92400e; }
+.badge-secured { background: #dbeafe; color: #1e40af; }
+.badge-done { background: #d1fae5; color: #065f46; }
+.badge-draft { background: #f3f4f6; color: #6b7280; }
+.badge-sent { background: #dbeafe; color: #1e40af; }
+.badge-success { background: #d1fae5; color: #065f46; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th { text-align: left; padding: 10px 12px; border-bottom: 2px solid var(--border); font-weight: 600; color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:hover { background: #f9fafb; }
+
+input, select, textarea { font-family: inherit; font-size: 0.85rem; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; width: 100%; transition: border-color 0.15s; background: #fff; color: var(--text); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(249,115,22,0.1); }
+textarea { resize: vertical; min-height: 80px; }
+label { display: block; font-size: 0.82rem; font-weight: 500; margin-bottom: 4px; color: var(--text); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { margin-bottom: 12px; }
+
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: flex-start; padding: 40px 16px; overflow-y: auto; }
+.modal.open { display: flex; }
+.modal-content { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 100%; max-width: 640px; margin: auto; }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-header h3 { font-size: 1rem; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--muted); padding: 4px; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+
+.filter-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+.filter-bar input, .filter-bar select { width: auto; min-width: 160px; }
+.filter-bar .search-input { flex: 1; min-width: 200px; }
+
+.empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+.empty p { font-size: 0.9rem; }
+.empty .icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
+
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.cal-header { background: #f9fafb; padding: 8px; text-align: center; font-weight: 600; font-size: 0.78rem; color: var(--muted); border-bottom: 1px solid var(--border); }
+.cal-cell { min-height: 80px; padding: 6px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); font-size: 0.78rem; overflow-y: auto; }
+.cal-cell:nth-child(7n) { border-right: none; }
+.cal-cell.other-month { background: #fafafa; }
+.cal-cell .day-num { font-weight: 600; margin-bottom: 4px; }
+.cal-cell .cal-pill { display: block; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.cal-pill.planning { background: #fef3c7; color: #92400e; }
+.cal-pill.ongoing { background: #dbeafe; color: #1e40af; }
+.cal-pill.completed { background: #d1fae5; color: #065f46; }
+.cal-pill.reported { background: #e0e7ff; color: #3730a3; }
+
+.tab-bar { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 2px solid var(--border); }
+.tab-item { padding: 10px 20px; font-size: 0.85rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--muted); transition: all 0.15s; }
+.tab-item:hover { color: var(--text); }
+.tab-item.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+@media print {
+  .sidebar { display: none !important; }
+  .topbar { display: none !important; }
+  .content { overflow: visible !important; padding: 0 !important; }
+  .btn, .filter-bar { display: none !important; }
+  .card { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
+  body { overflow: visible !important; }
+  .layout { display: block !important; }
+  .main { overflow: visible !important; }
+}
+
+@media (max-width: 768px) {
+  .sidebar { position: fixed; z-index: 100; transform: translateX(-100%); transition: transform 0.2s; }
+  .sidebar.open { transform: translateX(0); }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .filter-bar input, .filter-bar select { min-width: 120px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h1>PACE</h1>
+      <p>PDO App for Coordination &amp; Execution</p>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nav-item active" data-page="dashboard"><span class="icon">&#9679;</span> Dashboard</div>
+      <div class="nav-item" data-page="ppas"><span class="icon">&#9776;</span> PPAs</div>
+      <div class="nav-item" data-page="calendar"><span class="icon">&#128197;</span> School Calendar</div>
+      <div class="nav-item" data-page="coordination"><span class="icon">&#128101;</span> Coordination &amp; Resources</div>
+      <div class="nav-item" data-page="monitoring"><span class="icon">&#128200;</span> Monitoring &amp; Reports</div>
+      <div class="nav-item" data-page="spt"><span class="icon">&#128218;</span> SPT Support</div>
+      <div class="nav-item" data-page="sdo"><span class="icon">&#128279;</span> SDO Coordination</div>
+      <div class="nav-item" data-page="comms"><span class="icon">&#128231;</span> Communications</div>
+      <div class="nav-item" data-page="advocacy"><span class="icon">&#128227;</span> Advocacy Materials</div>
+      <div class="nav-item" data-page="backup"><span class="icon">&#128427;</span> Backup &amp; Data</div>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <h2 id="pageTitle">Dashboard</h2>
+        <span class="subtitle" id="pageSubtitle">PPA overview at a glance</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="mobileMenuToggle" style="display:none">&#9776; Menu</button>
+    </header>
+
+    <div class="content" id="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="grid-4" id="dashStats"></div>
+        <div style="height:16px"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><h3>PPA Status Breakdown</h3></div>
+            <div class="card-body" id="dashStatusBreakdown"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Quick Actions</h3></div>
+            <div class="card-body" id="dashQuickActions">
+              <button class="btn btn-primary" onclick="showPage('ppas'); openPPAModal()">+ New PPA</button>
+              <button class="btn btn-secondary" style="margin-top:8px" onclick="showPage('backup')">Backup Data</button>
+            </div>
+          </div>
+        </div>
+        <div style="height:16px"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><h3>Upcoming SDO Follow-ups</h3></div>
+            <div class="card-body" id="dashSDOFollowups"><p class="empty">No upcoming follow-ups.</p></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Pending SPT Tasks</h3></div>
+            <div class="card-body" id="dashSPTTasks"><p class="empty">No pending tasks.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PPAS -->
+      <div class="page" id="page-ppas">
+        <div class="card">
+          <div class="card-header">
+            <h3>All PPAs</h3>
+            <button class="btn btn-primary btn-sm" onclick="openPPAModal()">+ New PPA</button>
+          </div>
+          <div class="card-body">
+            <div class="filter-bar">
+              <input class="search-input" id="ppaSearch" placeholder="Search PPAs..." oninput="renderPPAs()">
+              <select id="ppaFilterStatus" onchange="renderPPAs()">
+                <option value="">All Statuses</option>
+                <option value="planning">Planning</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Completed</option>
+                <option value="reported">Reported</option>
+              </select>
+            </div>
+            <div class="table-wrap"><table><thead><tr>
+              <th>Title</th><th>Policy Basis</th><th>Status</th><th>Start</th><th>End</th><th>Budget</th><th>Actions</th>
+            </tr></thead><tbody id="ppaTable"></tbody></table></div>
+            <div class="empty" id="ppaEmpty">No PPAs yet. Click "+ New PPA" to get started.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDAR -->
+      <div class="page" id="page-calendar">
+        <div class="card">
+          <div class="card-header">
+            <h3>School Calendar</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn btn-secondary btn-sm" onclick="calNav(-1)">&larr; Prev</button>
+              <span id="calMonthLabel" style="font-weight:600;min-width:140px;text-align:center"></span>
+              <button class="btn btn-secondary btn-sm" onclick="calNav(1)">Next &rarr;</button>
+              <button class="btn btn-outline btn-sm" onclick="calNav(0)">Today</button>
+            </div>
+          </div>
+          <div class="card-body" id="calendarBody"></div>
+        </div>
+      </div>
+
+      <!-- COORDINATION -->
+      <div class="page" id="page-coordination">
+        <div class="card">
+          <div class="card-header">
+            <h3>Coordination &amp; Resources Log</h3>
+            <button class="btn btn-primary btn-sm" onclick="openCoordModal()">+ New Entry</button>
+          </div>
+          <div class="card-body">
+            <div class="filter-bar">
+              <input class="search-input" id="coordSearch" placeholder="Search entries..." oninput="renderCoordination()">
+              <select id="coordFilterStatus" onchange="renderCoordination()">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="secured">Secured</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div class="table-wrap"><table><thead><tr>
+              <th>Partner</th><th>Type</th><th>PPA</th><th>Status</th><th>Date</th><th>Actions</th>
+            </tr></thead><tbody id="coordTable"></tbody></table></div>
+            <div class="empty" id="coordEmpty">No coordination entries yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MONITORING -->
+      <div class="page" id="page-monitoring">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><h3>PPA Status Report</h3></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Select PPA</label>
+                <select id="monitoringPPASelect" onchange="renderMonitoringReport()"></select>
+              </div>
+              <div id="monitoringReport"></div>
+              <button class="btn btn-primary btn-sm" id="monitoringDownloadBtn" onclick="downloadPPAReport()">Download Report</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Consolidated Report</h3></div>
+            <div class="card-body">
+              <div id="consolidatedReport"></div>
+              <button class="btn btn-primary btn-sm" onclick="downloadConsolidatedReport()">Download Consolidated Report</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPT -->
+      <div class="page" id="page-spt">
+        <div class="card">
+          <div class="card-header">
+            <h3>SPT Support Tasks</h3>
+            <button class="btn btn-primary btn-sm" onclick="openSPTModal()">+ New Task</button>
+          </div>
+          <div class="card-body">
+            <div class="filter-bar">
+              <input class="search-input" id="sptSearch" placeholder="Search tasks..." oninput="renderSPT()">
+              <select id="sptFilterStatus" onchange="renderSPT()">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="in-progress">In Progress</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div class="table-wrap"><table><thead><tr>
+              <th>Task</th><th>Assigned To</th><th>Deadline</th><th>Status</th><th>Actions</th>
+            </tr></thead><tbody id="sptTable"></tbody></table></div>
+            <div class="empty" id="sptEmpty">No SPT tasks yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SDO -->
+      <div class="page" id="page-sdo">
+        <div class="card">
+          <div class="card-header">
+            <h3>SDO Coordination Log</h3>
+            <button class="btn btn-primary btn-sm" onclick="openSDOModal()">+ New Entry</button>
+          </div>
+          <div class="card-body">
+            <div class="filter-bar">
+              <input class="search-input" id="sdoSearch" placeholder="Search entries..." oninput="renderSDO()">
+              <select id="sdoFilterStatus" onchange="renderSDO()">
+                <option value="">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="follow-up">For Follow-up</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </div>
+            <div class="table-wrap"><table><thead><tr>
+              <th>Office</th><th>Purpose</th><th>Contact</th><th>Follow-up Date</th><th>Status</th><th>Actions</th>
+            </tr></thead><tbody id="sdoTable"></tbody></table></div>
+            <div class="empty" id="sdoEmpty">No SDO entries yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMMS -->
+      <div class="page" id="page-comms">
+        <div class="card">
+          <div class="card-header">
+            <h3>Communications</h3>
+            <button class="btn btn-primary btn-sm" onclick="openCommModal()">+ New Communication</button>
+          </div>
+          <div class="card-body">
+            <div class="filter-bar">
+              <input class="search-input" id="commSearch" placeholder="Search communications..." oninput="renderComms()">
+              <select id="commFilterType" onchange="renderComms()">
+                <option value="">All Types</option>
+                <option value="letter">Letter</option>
+                <option value="memo">Memo</option>
+                <option value="notice">Notice</option>
+              </select>
+              <select id="commFilterStatus" onchange="renderComms()">
+                <option value="">All Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="sent">Sent</option>
+              </select>
+            </div>
+            <div class="table-wrap"><table><thead><tr>
+              <th>Type</th><th>Recipient</th><th>Subject</th><th>Status</th><th>Date</th><th>Actions</th>
+            </tr></thead><tbody id="commTable"></tbody></table></div>
+            <div class="empty" id="commEmpty">No communications yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADVOCACY -->
+      <div class="page" id="page-advocacy">
+        <div class="card">
+          <div class="card-header">
+            <h3>Advocacy Materials</h3>
+            <button class="btn btn-primary btn-sm" onclick="openAdvocacyModal()">+ New Material</button>
+          </div>
+          <div class="card-body">
+            <div class="grid-4" id="advocacyStats"></div>
+            <div style="height:16px"></div>
+            <div class="filter-bar">
+              <input class="search-input" id="advocacySearch" placeholder="Search materials..." oninput="renderAdvocacy()">
+              <select id="advocacyFilterChannel" onchange="renderAdvocacy()">
+                <option value="">All Channels</option>
+                <option value="social-media">Social Media</option>
+                <option value="print">Print</option>
+                <option value="radio">Radio</option>
+                <option value="tv">TV</option>
+                <option value="event">Event</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="table-wrap"><table><thead><tr>
+              <th>Title</th><th>Type</th><th>Channel</th><th>Audience</th><th>Reach</th><th>Date</th><th>Actions</th>
+            </tr></thead><tbody id="advocacyTable"></tbody></table></div>
+            <div class="empty" id="advocacyEmpty">No advocacy materials yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BACKUP -->
+      <div class="page" id="page-backup">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><h3>Export Data</h3></div>
+            <div class="card-body">
+              <p style="margin-bottom:12px;color:var(--muted);font-size:0.85rem">Download all your PPA data as a JSON file for safekeeping or transfer.</p>
+              <button class="btn btn-primary" onclick="exportData()">Download JSON Backup</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Import Data</h3></div>
+            <div class="card-body">
+              <p style="margin-bottom:12px;color:var(--muted);font-size:0.85rem">Restore data from a previously exported JSON file. This will replace all current data.</p>
+              <input type="file" id="importFileInput" accept=".json" style="margin-bottom:12px">
+              <button class="btn btn-secondary" onclick="importData()">Restore from File</button>
+            </div>
+          </div>
+        </div>
+        <div style="height:16px"></div>
+        <div class="card">
+          <div class="card-header"><h3>Danger Zone</h3></div>
+          <div class="card-body">
+            <p style="margin-bottom:12px;color:var(--muted);font-size:0.85rem">Permanently erase all PACE data. This cannot be undone.</p>
+            <button class="btn btn-danger" onclick="eraseData()">Erase All Data</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- PPA MODAL -->
+<div class="modal" id="ppaModal">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="ppaModalTitle">New PPA</h3><button class="modal-close" onclick="closeModal('ppaModal')">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="ppaEditId">
+      <div class="form-group"><label>PPA Title *</label><input id="ppaTitle" placeholder="e.g. School-Based Feeding Program"></div>
+      <div class="form-group"><label>Policy Basis</label><input id="ppaPolicy" placeholder="e.g. DepEd Order No. 12, s. 2023"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Start Date *</label><input type="date" id="ppaStart"></div>
+        <div class="form-group"><label>End Date *</label><input type="date" id="ppaEnd"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Status</label><select id="ppaStatus"><option value="planning">Planning</option><option value="ongoing">Ongoing</option><option value="completed">Completed</option><option value="reported">Reported</option></select></div>
+        <div class="form-group"><label>Budget (&#8369;)</label><input type="number" id="ppaBudget" step="0.01" placeholder="0.00"></div>
+      </div>
+      <div class="form-group"><label>Beneficiaries</label><input id="ppaBeneficiaries" placeholder="e.g. 200 Grade 1 learners"></div>
+      <div class="form-group"><label>Personnel Involved</label><input id="ppaPersonnel" placeholder="e.g. Teacher-Advisers, School Nurse"></div>
+      <div class="form-group"><label>Resources Needed</label><textarea id="ppaResources" placeholder="List of resources..."></textarea></div>
+      <div class="form-group"><label>Documentary Requirements</label><textarea id="ppaDocs" placeholder="Required documents..."></textarea></div>
+      <div class="form-group"><label>Monitoring Notes</label><textarea id="ppaNotes" placeholder="Notes..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('ppaModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="savePPA()">Save PPA</button>
+    </div>
+  </div>
+</div>
+
+<!-- COORDINATION MODAL -->
+<div class="modal" id="coordModal">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="coordModalTitle">New Coordination Entry</h3><button class="modal-close" onclick="closeModal('coordModal')">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="coordEditId">
+      <div class="form-group"><label>Partner/Entity *</label><input id="coordPartner" placeholder="e.g. LGU, Barangay, NGO"></div>
+      <div class="form-group"><label>Type of Coordination *</label><select id="coordType"><option value="meeting">Meeting</option><option value="request">Request</option><option value="submission">Submission</option><option value="follow-up">Follow-up</option><option value="other">Other</option></select></div>
+      <div class="form-group"><label>Related PPA</label><select id="coordPPA"></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>Date *</label><input type="date" id="coordDate"></div>
+        <div class="form-group"><label>Status</label><select id="coordStatus"><option value="pending">Pending</option><option value="secured">Secured</option><option value="done">Done</option></select></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="coordNotes" placeholder="Details..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('coordModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCoord()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- SPT MODAL -->
+<div class="modal" id="sptModal">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="sptModalTitle">New SPT Task</h3><button class="modal-close" onclick="closeModal('sptModal')">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="sptEditId">
+      <div class="form-group"><label>Task *</label><input id="sptTask" placeholder="e.g. Prepare SIP document"></div>
+      <div class="form-group"><label>Assigned To</label><input id="sptAssignee" placeholder="e.g. John Dela Cruz"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Deadline</label><input type="date" id="sptDeadline"></div>
+        <div class="form-group"><label>Status</label><select id="sptStatus"><option value="pending">Pending</option><option value="in-progress">In Progress</option><option value="done">Done</option></select></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="sptNotes" placeholder="Details..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('sptModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSPT()">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- SDO MODAL -->
+<div class="modal" id="sdoModal">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="sdoModalTitle">New SDO Entry</h3><button class="modal-close" onclick="closeModal('sdoModal')">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="sdoEditId">
+      <div class="form-group"><label>SDO Office/Unit *</label><input id="sdoOffice" placeholder="e.g. CID, SGOD"></div>
+      <div class="form-group"><label>Purpose *</label><input id="sdoPurpose" placeholder="e.g. Submission of SF5"></div>
+      <div class="form-group"><label>Contact Person</label><input id="sdoContact" placeholder="e.g. Mr. Santos"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Date *</label><input type="date" id="sdoDate"></div>
+        <div class="form-group"><label>Follow-up Date</label><input type="date" id="sdoFollowUp"></div>
+      </div>
+      <div class="form-group"><label>Status</label><select id="sdoStatus"><option value="pending">Pending</option><option value="follow-up">For Follow-up</option><option value="resolved">Resolved</option></select></div>
+      <div class="form-group"><label>Notes</label><textarea id="sdoNotes" placeholder="Details..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('sdoModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSDO()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMMS MODAL -->
+<div class="modal" id="commModal">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="commModalTitle">New Communication</h3><button class="modal-close" onclick="closeModal('commModal')">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="commEditId">
+      <div class="form-row">
+        <div class="form-group"><label>Type *</label><select id="commType"><option value="letter">Letter</option><option value="memo">Memo</option><option value="notice">Notice</option></select></div>
+        <div class="form-group"><label>Date *</label><input type="date" id="commDate"></div>
+      </div>
+      <div class="form-group"><label>Recipient *</label><input id="commRecipient" placeholder="e.g. SDS, Division Chief"></div>
+      <div class="form-group"><label>Subject *</label><input id="commSubject" placeholder="Subject line"></div>
+      <div class="form-group"><label>Body</label><textarea id="commBody" rows="6" placeholder="Content..."></textarea></div>
+      <div class="form-group"><label>Status</label><select id="commStatus"><option value="draft">Draft</option><option value="sent">Sent</option></select></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('commModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveComm()">Save Communication</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADVOCACY MODAL -->
+<div class="modal" id="advocacyModal">
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="advocacyModalTitle">New Advocacy Material</h3><button class="modal-close" onclick="closeModal('advocacyModal')">&times;</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="advocacyEditId">
+      <div class="form-group"><label>Title *</label><input id="advocacyTitle" placeholder="e.g. Brigada Eskwela Info Kit"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Material Type *</label><select id="advocacyType"><option value="infographic">Infographic</option><option value="flyer">Flyer</option><option value="poster">Poster</option><option value="video">Video</option><option value="presentation">Presentation</option><option value="other">Other</option></select></div>
+        <div class="form-group"><label>Channel</label><select id="advocacyChannel"><option value="social-media">Social Media</option><option value="print">Print</option><option value="radio">Radio</option><option value="tv">TV</option><option value="event">Event</option><option value="other">Other</option></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Target Audience</label><input id="advocacyAudience" placeholder="e.g. Parents, Teachers"></div>
+        <div class="form-group"><label>Estimated Reach</label><input type="number" id="advocacyReach" placeholder="0"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Date *</label><input type="date" id="advocacyDate"></div>
+      </div>
+      <div class="form-group"><label>Notes</label><textarea id="advocacyNotes" placeholder="Details..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('advocacyModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAdvocacy()">Save Material</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="confirmModal">
+  <div class="modal-content" style="max-width:400px">
+    <div class="modal-header"><h3 id="confirmTitle">Confirm</h3><button class="modal-close" onclick="closeModal('confirmModal')">&times;</button></div>
+    <div class="modal-body"><p id="confirmMessage"></p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('confirmModal')">Cancel</button>
+      <button class="btn btn-danger" id="confirmBtn" onclick="">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'ppaWorkbench_v1';
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function esc(s) {
+  if (typeof s !== 'string') return '';
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return { ppas: [], coordination: [], sptTasks: [], sdoLogs: [], comms: [], advocacy: [] };
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function showToast(msg, type) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;color:#fff;font-size:0.85rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.15);animation:fadeIn 0.2s;max-width:400px';
+  el.style.background = type === 'error' ? '#ef4444' : type === 'warning' ? '#eab308' : '#22c55e';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `@keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }`;
+document.head.appendChild(styleSheet);
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function confirmAction(title, message, onConfirm) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmMessage').textContent = message;
+  const btn = document.getElementById('confirmBtn');
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  newBtn.onclick = function() { closeModal('confirmModal'); onConfirm(); };
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+// NAVIGATION
+const pageTitles = {
+  dashboard: ['Dashboard', 'PPA overview at a glance'],
+  ppas: ['PPAs', 'Programs, Projects, and Activities'],
+  calendar: ['School Calendar', 'PPA schedule by month'],
+  coordination: ['Coordination & Resources', 'Partner engagement log'],
+  monitoring: ['Monitoring & Reports', 'Status reports and downloads'],
+  spt: ['SPT Support', 'School Planning Team task tracker'],
+  sdo: ['SDO Coordination', 'Division office coordination log'],
+  comms: ['Communications', 'Letters, memos, and notices'],
+  advocacy: ['Advocacy Materials', 'Information dissemination tracker'],
+  backup: ['Backup & Data', 'Export, import, and data management']
+};
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelector(`.nav-item[data-page="${name}"]`).classList.add('active');
+  const t = pageTitles[name] || [name, ''];
+  document.getElementById('pageTitle').textContent = t[0];
+  document.getElementById('pageSubtitle').textContent = t[1];
+  renderAll();
+}
+
+document.getElementById('nav').addEventListener('click', function(e) {
+  const item = e.target.closest('.nav-item');
+  if (item) showPage(item.dataset.page);
+});
+
+// MOBILE MENU
+(function() {
+  const mq = window.matchMedia('(max-width: 768px)');
+  function handleMQ(e) {
+    document.getElementById('mobileMenuToggle').style.display = e.matches ? 'inline-flex' : 'none';
+    if (!e.matches) document.getElementById('sidebar').classList.remove('open');
+  }
+  mq.addListener(handleMQ);
+  handleMQ(mq);
+  document.getElementById('mobileMenuToggle').onclick = function() {
+    document.getElementById('sidebar').classList.toggle('open');
+  };
+  document.getElementById('content').addEventListener('click', function() {
+    if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+  });
+})();
+
+// === PPAs ===
+function getPPAs() { return getData().ppas; }
+
+function savePPAs(ppas) {
+  const d = getData();
+  d.ppas = ppas;
+  saveData(d);
+}
+
+function openPPAModal(id) {
+  document.getElementById('ppaEditId').value = id || '';
+  document.getElementById('ppaModalTitle').textContent = id ? 'Edit PPA' : 'New PPA';
+  document.getElementById('ppaTitle').value = '';
+  document.getElementById('ppaPolicy').value = '';
+  document.getElementById('ppaStart').value = '';
+  document.getElementById('ppaEnd').value = '';
+  document.getElementById('ppaStatus').value = 'planning';
+  document.getElementById('ppaBudget').value = '';
+  document.getElementById('ppaBeneficiaries').value = '';
+  document.getElementById('ppaPersonnel').value = '';
+  document.getElementById('ppaResources').value = '';
+  document.getElementById('ppaDocs').value = '';
+  document.getElementById('ppaNotes').value = '';
+  if (id) {
+    const ppa = getPPAs().find(p => p.id === id);
+    if (!ppa) return;
+    document.getElementById('ppaTitle').value = ppa.title || '';
+    document.getElementById('ppaPolicy').value = ppa.policyBasis || '';
+    document.getElementById('ppaStart').value = ppa.startDate || '';
+    document.getElementById('ppaEnd').value = ppa.endDate || '';
+    document.getElementById('ppaStatus').value = ppa.status || 'planning';
+    document.getElementById('ppaBudget').value = ppa.budget || '';
+    document.getElementById('ppaBeneficiaries').value = ppa.beneficiaries || '';
+    document.getElementById('ppaPersonnel').value = ppa.personnel || '';
+    document.getElementById('ppaResources').value = ppa.resources || '';
+    document.getElementById('ppaDocs').value = ppa.documentaryRequirements || '';
+    document.getElementById('ppaNotes').value = ppa.monitoringNotes || '';
+  }
+  document.getElementById('ppaModal').classList.add('open');
+  document.getElementById('ppaTitle').focus();
+}
+
+function savePPA() {
+  const id = document.getElementById('ppaEditId').value;
+  const title = document.getElementById('ppaTitle').value.trim();
+  if (!title) { showToast('PPA title is required.', 'error'); return; }
+  const startDate = document.getElementById('ppaStart').value;
+  const endDate = document.getElementById('ppaEnd').value;
+  if (!startDate || !endDate) { showToast('Start and end dates are required.', 'error'); return; }
+  const budget = parseFloat(document.getElementById('ppaBudget').value) || 0;
+  const ppa = {
+    title,
+    policyBasis: document.getElementById('ppaPolicy').value.trim(),
+    startDate, endDate,
+    status: document.getElementById('ppaStatus').value,
+    budget,
+    beneficiaries: document.getElementById('ppaBeneficiaries').value.trim(),
+    personnel: document.getElementById('ppaPersonnel').value.trim(),
+    resources: document.getElementById('ppaResources').value.trim(),
+    documentaryRequirements: document.getElementById('ppaDocs').value.trim(),
+    monitoringNotes: document.getElementById('ppaNotes').value.trim()
+  };
+  const ppas = getPPAs();
+  if (id) {
+    const idx = ppas.findIndex(p => p.id === id);
+    if (idx >= 0) { ppas[idx] = { ...ppas[idx], ...ppa, updatedAt: new Date().toISOString() }; }
+  } else {
+    ppa.id = uid();
+    ppa.createdAt = new Date().toISOString();
+    ppa.updatedAt = ppa.createdAt;
+    ppas.push(ppa);
+  }
+  savePPAs(ppas);
+  closeModal('ppaModal');
+  renderAll();
+  showToast(id ? 'PPA updated.' : 'PPA created.');
+}
+
+function deletePPA(id) {
+  confirmAction('Delete PPA', 'Are you sure you want to delete this PPA and all related records?', function() {
+    const d = getData();
+    d.ppas = d.ppas.filter(p => p.id !== id);
+    d.coordination = d.coordination.filter(c => c.ppaId !== id);
+    saveData(d);
+    renderAll();
+    showToast('PPA deleted.');
+  });
+}
+
+function statusBadge(s) {
+  return `<span class="badge badge-${s}">${s.charAt(0).toUpperCase() + s.slice(1)}</span>`;
+}
+
+function renderPPAs() {
+  const ppas = getPPAs();
+  const search = (document.getElementById('ppaSearch').value || '').toLowerCase();
+  const filterStatus = document.getElementById('ppaFilterStatus').value;
+  let filtered = ppas;
+  if (search) filtered = filtered.filter(p => (p.title || '').toLowerCase().includes(search) || (p.policyBasis || '').toLowerCase().includes(search));
+  if (filterStatus) filtered = filtered.filter(p => p.status === filterStatus);
+  const tbody = document.getElementById('ppaTable');
+  const empty = document.getElementById('ppaEmpty');
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(p => `<tr>
+    <td><strong>${esc(p.title)}</strong></td>
+    <td style="font-size:0.8rem;color:var(--muted)">${esc(p.policyBasis || '-')}</td>
+    <td>${statusBadge(p.status)}</td>
+    <td>${p.startDate || '-'}</td>
+    <td>${p.endDate || '-'}</td>
+    <td>&#8369;${typeof p.budget === 'number' ? p.budget.toFixed(2) : esc(p.budget || '0')}</td>
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="openPPAModal('${p.id}')">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="deletePPA('${p.id}')">Del</button>
+    </td>
+  </tr>`).join('');
+}
+
+// === COORDINATION ===
+function getCoord() { return getData().coordination; }
+
+function openCoordModal(id) {
+  document.getElementById('coordEditId').value = id || '';
+  document.getElementById('coordModalTitle').textContent = id ? 'Edit Coordination Entry' : 'New Coordination Entry';
+  document.getElementById('coordPartner').value = '';
+  document.getElementById('coordType').value = 'meeting';
+  document.getElementById('coordDate').value = todayStr();
+  document.getElementById('coordStatus').value = 'pending';
+  document.getElementById('coordNotes').value = '';
+  const ppaSelect = document.getElementById('coordPPA');
+  ppaSelect.innerHTML = '<option value="">-- None --</option>' + getPPAs().map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+  if (id) {
+    const c = getCoord().find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('coordPartner').value = c.partnerName || '';
+    document.getElementById('coordType').value = c.coordinationType || 'meeting';
+    document.getElementById('coordDate').value = c.date || todayStr();
+    document.getElementById('coordStatus').value = c.status || 'pending';
+    document.getElementById('coordNotes').value = c.notes || '';
+    ppaSelect.value = c.ppaId || '';
+  }
+  document.getElementById('coordModal').classList.add('open');
+}
+
+function saveCoord() {
+  const id = document.getElementById('coordEditId').value;
+  const partnerName = document.getElementById('coordPartner').value.trim();
+  if (!partnerName) { showToast('Partner name is required.', 'error'); return; }
+  const date = document.getElementById('coordDate').value;
+  if (!date) { showToast('Date is required.', 'error'); return; }
+  const entry = {
+    partnerName,
+    coordinationType: document.getElementById('coordType').value,
+    ppaId: document.getElementById('coordPPA').value || '',
+    date,
+    status: document.getElementById('coordStatus').value,
+    notes: document.getElementById('coordNotes').value.trim()
+  };
+  const data = getData();
+  if (id) {
+    const idx = data.coordination.findIndex(x => x.id === id);
+    if (idx >= 0) data.coordination[idx] = { ...data.coordination[idx], ...entry };
+  } else {
+    entry.id = uid();
+    entry.createdAt = new Date().toISOString();
+    data.coordination.push(entry);
+  }
+  saveData(data);
+  closeModal('coordModal');
+  renderAll();
+  showToast(id ? 'Entry updated.' : 'Entry created.');
+}
+
+function deleteCoord(id) {
+  confirmAction('Delete Entry', 'Delete this coordination entry?', function() {
+    const d = getData();
+    d.coordination = d.coordination.filter(x => x.id !== id);
+    saveData(d);
+    renderAll();
+    showToast('Entry deleted.');
+  });
+}
+
+function renderCoordination() {
+  const data = getData().coordination;
+  const ppas = getPPAs();
+  const search = (document.getElementById('coordSearch').value || '').toLowerCase();
+  const filterStatus = document.getElementById('coordFilterStatus').value;
+  let filtered = data;
+  if (search) filtered = filtered.filter(c => (c.partnerName || '').toLowerCase().includes(search) || (c.notes || '').toLowerCase().includes(search));
+  if (filterStatus) filtered = filtered.filter(c => c.status === filterStatus);
+  const tbody = document.getElementById('coordTable');
+  const empty = document.getElementById('coordEmpty');
+  if (filtered.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(c => {
+    const ppa = ppas.find(p => p.id === c.ppaId);
+    return `<tr>
+      <td><strong>${esc(c.partnerName)}</strong></td>
+      <td style="font-size:0.8rem;color:var(--muted)">${esc(c.coordinationType)}</td>
+      <td style="font-size:0.8rem">${ppa ? esc(ppa.title) : '-'}</td>
+      <td>${statusBadge(c.status)}</td>
+      <td style="font-size:0.8rem">${c.date || '-'}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="openCoordModal('${c.id}')">Edit</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteCoord('${c.id}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// === CALENDAR ===
+let calDate = new Date();
+
+function calNav(dir) {
+  if (dir === 0) { calDate = new Date(); }
+  else { calDate.setMonth(calDate.getMonth() + dir); }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const year = calDate.getFullYear();
+  const month = calDate.getMonth();
+  document.getElementById('calMonthLabel').textContent = new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const daysInPrev = new Date(year, month, 0).getDate();
+  const ppas = getPPAs();
+  const today = todayStr();
+  let html = '<div class="calendar-grid">';
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => { html += `<div class="cal-header">${d}</div>`; });
+  let cell = 0;
+  for (let i = firstDay - 1; i >= 0; i--) {
+    const d = daysInPrev - i;
+    html += `<div class="cal-cell other-month"><div class="day-num">${d}</div></div>`;
+    cell++;
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === today;
+    const dayPPAs = ppas.filter(p => p.startDate && p.endDate && dateStr >= p.startDate && dateStr <= p.endDate);
+    let pills = dayPPAs.map(p => `<span class="cal-pill ${p.status}" title="${esc(p.title)}}">${esc(p.title)}</span>`).join('');
+    html += `<div class="cal-cell" style="${isToday ? 'background:#fef3c7' : ''}"><div class="day-num" style="${isToday ? 'color:#f97316' : ''}">${d}</div>${pills}</div>`;
+    cell++;
+  }
+  const remaining = 42 - cell;
+  for (let d = 1; d <= remaining; d++) {
+    html += `<div class="cal-cell other-month"><div class="day-num">${d}</div></div>`;
+  }
+  html += '</div>';
+  document.getElementById('calendarBody').innerHTML = html;
+}
+
+// === SPT ===
+function getSPT() { return getData().sptTasks; }
+
+function openSPTModal(id) {
+  document.getElementById('sptEditId').value = id || '';
+  document.getElementById('sptModalTitle').textContent = id ? 'Edit SPT Task' : 'New SPT Task';
+  document.getElementById('sptTask').value = '';
+  document.getElementById('sptAssignee').value = '';
+  document.getElementById('sptDeadline').value = '';
+  document.getElementById('sptStatus').value = 'pending';
+  document.getElementById('sptNotes').value = '';
+  if (id) {
+    const t = getSPT().find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('sptTask').value = t.task || '';
+    document.getElementById('sptAssignee').value = t.assignedTo || '';
+    document.getElementById('sptDeadline').value = t.deadline || '';
+    document.getElementById('sptStatus').value = t.status || 'pending';
+    document.getElementById('sptNotes').value = t.notes || '';
+  }
+  document.getElementById('sptModal').classList.add('open');
+}
+
+function saveSPT() {
+  const id = document.getElementById('sptEditId').value;
+  const task = document.getElementById('sptTask').value.trim();
+  if (!task) { showToast('Task is required.', 'error'); return; }
+  const entry = {
+    task,
+    assignedTo: document.getElementById('sptAssignee').value.trim(),
+    deadline: document.getElementById('sptDeadline').value,
+    status: document.getElementById('sptStatus').value,
+    notes: document.getElementById('sptNotes').value.trim()
+  };
+  const data = getData();
+  if (id) {
+    const idx = data.sptTasks.findIndex(x => x.id === id);
+    if (idx >= 0) data.sptTasks[idx] = { ...data.sptTasks[idx], ...entry };
+  } else {
+    entry.id = uid();
+    entry.createdAt = new Date().toISOString();
+    data.sptTasks.push(entry);
+  }
+  saveData(data);
+  closeModal('sptModal');
+  renderAll();
+  showToast(id ? 'Task updated.' : 'Task created.');
+}
+
+function deleteSPT(id) {
+  confirmAction('Delete Task', 'Delete this SPT task?', function() {
+    const d = getData();
+    d.sptTasks = d.sptTasks.filter(x => x.id !== id);
+    saveData(d);
+    renderAll();
+    showToast('Task deleted.');
+  });
+}
+
+function renderSPT() {
+  const data = getData().sptTasks;
+  const search = (document.getElementById('sptSearch').value || '').toLowerCase();
+  const filterStatus = document.getElementById('sptFilterStatus').value;
+  let filtered = data;
+  if (search) filtered = filtered.filter(t => (t.task || '').toLowerCase().includes(search) || (t.assignedTo || '').toLowerCase().includes(search));
+  if (filterStatus) filtered = filtered.filter(t => t.status === filterStatus);
+  const tbody = document.getElementById('sptTable');
+  const empty = document.getElementById('sptEmpty');
+  if (filtered.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(t => `<tr>
+    <td><strong>${esc(t.task)}</strong></td>
+    <td style="font-size:0.85rem">${esc(t.assignedTo || '-')}</td>
+    <td style="font-size:0.8rem">${t.deadline || '-'}</td>
+    <td>${statusBadge(t.status === 'in-progress' ? 'ongoing' : t.status === 'done' ? 'completed' : 'planning')}</td>
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="openSPTModal('${t.id}')">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteSPT('${t.id}')">Del</button>
+    </td>
+  </tr>`).join('');
+}
+
+// === SDO ===
+function getSDO() { return getData().sdoLogs; }
+
+function openSDOModal(id) {
+  document.getElementById('sdoEditId').value = id || '';
+  document.getElementById('sdoModalTitle').textContent = id ? 'Edit SDO Entry' : 'New SDO Entry';
+  document.getElementById('sdoOffice').value = '';
+  document.getElementById('sdoPurpose').value = '';
+  document.getElementById('sdoContact').value = '';
+  document.getElementById('sdoDate').value = todayStr();
+  document.getElementById('sdoFollowUp').value = '';
+  document.getElementById('sdoStatus').value = 'pending';
+  document.getElementById('sdoNotes').value = '';
+  if (id) {
+    const e = getSDO().find(x => x.id === id);
+    if (!e) return;
+    document.getElementById('sdoOffice').value = e.office || '';
+    document.getElementById('sdoPurpose').value = e.purpose || '';
+    document.getElementById('sdoContact').value = e.contactPerson || '';
+    document.getElementById('sdoDate').value = e.date || todayStr();
+    document.getElementById('sdoFollowUp').value = e.followUpDate || '';
+    document.getElementById('sdoStatus').value = e.status || 'pending';
+    document.getElementById('sdoNotes').value = e.notes || '';
+  }
+  document.getElementById('sdoModal').classList.add('open');
+}
+
+function saveSDO() {
+  const id = document.getElementById('sdoEditId').value;
+  const office = document.getElementById('sdoOffice').value.trim();
+  if (!office) { showToast('SDO office is required.', 'error'); return; }
+  const purpose = document.getElementById('sdoPurpose').value.trim();
+  if (!purpose) { showToast('Purpose is required.', 'error'); return; }
+  const entry = {
+    office, purpose,
+    contactPerson: document.getElementById('sdoContact').value.trim(),
+    date: document.getElementById('sdoDate').value,
+    followUpDate: document.getElementById('sdoFollowUp').value,
+    status: document.getElementById('sdoStatus').value,
+    notes: document.getElementById('sdoNotes').value.trim()
+  };
+  const data = getData();
+  if (id) {
+    const idx = data.sdoLogs.findIndex(x => x.id === id);
+    if (idx >= 0) data.sdoLogs[idx] = { ...data.sdoLogs[idx], ...entry };
+  } else {
+    entry.id = uid();
+    entry.createdAt = new Date().toISOString();
+    data.sdoLogs.push(entry);
+  }
+  saveData(data);
+  closeModal('sdoModal');
+  renderAll();
+  showToast(id ? 'Entry updated.' : 'Entry created.');
+}
+
+function deleteSDO(id) {
+  confirmAction('Delete Entry', 'Delete this SDO entry?', function() {
+    const d = getData();
+    d.sdoLogs = d.sdoLogs.filter(x => x.id !== id);
+    saveData(d);
+    renderAll();
+    showToast('Entry deleted.');
+  });
+}
+
+function renderSDO() {
+  const data = getData().sdoLogs;
+  const search = (document.getElementById('sdoSearch').value || '').toLowerCase();
+  const filterStatus = document.getElementById('sdoFilterStatus').value;
+  let filtered = data;
+  if (search) filtered = filtered.filter(e => (e.office || '').toLowerCase().includes(search) || (e.purpose || '').toLowerCase().includes(search) || (e.contactPerson || '').toLowerCase().includes(search));
+  if (filterStatus) filtered = filtered.filter(e => e.status === filterStatus);
+  const tbody = document.getElementById('sdoTable');
+  const empty = document.getElementById('sdoEmpty');
+  if (filtered.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const sevenDaysFromNow = new Date(today);
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+  tbody.innerHTML = filtered.map(e => {
+    let highlight = '';
+    if (e.followUpDate) {
+      const fd = new Date(e.followUpDate + 'T00:00:00');
+      if (fd <= sevenDaysFromNow && e.status !== 'resolved') highlight = ' style="background:#fef2f2"';
+    }
+    return `<tr${highlight}>
+      <td><strong>${esc(e.office)}</strong></td>
+      <td style="font-size:0.85rem">${esc(e.purpose)}</td>
+      <td style="font-size:0.8rem;color:var(--muted)">${esc(e.contactPerson || '-')}</td>
+      <td style="font-size:0.8rem">${e.followUpDate || '-'}</td>
+      <td>${statusBadge(e.status)}</td>
+      <td>
+        <button class="btn btn-outline btn-xs" onclick="openSDOModal('${e.id}')">Edit</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteSDO('${e.id}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// === COMMS ===
+function getComms() { return getData().comms; }
+
+function openCommModal(id) {
+  document.getElementById('commEditId').value = id || '';
+  document.getElementById('commModalTitle').textContent = id ? 'Edit Communication' : 'New Communication';
+  document.getElementById('commType').value = 'letter';
+  document.getElementById('commDate').value = todayStr();
+  document.getElementById('commRecipient').value = '';
+  document.getElementById('commSubject').value = '';
+  document.getElementById('commBody').value = '';
+  document.getElementById('commStatus').value = 'draft';
+  if (id) {
+    const c = getComms().find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('commType').value = c.type || 'letter';
+    document.getElementById('commDate').value = c.date || todayStr();
+    document.getElementById('commRecipient').value = c.recipient || '';
+    document.getElementById('commSubject').value = c.subject || '';
+    document.getElementById('commBody').value = c.body || '';
+    document.getElementById('commStatus').value = c.status || 'draft';
+  }
+  document.getElementById('commModal').classList.add('open');
+}
+
+function saveComm() {
+  const id = document.getElementById('commEditId').value;
+  const recipient = document.getElementById('commRecipient').value.trim();
+  if (!recipient) { showToast('Recipient is required.', 'error'); return; }
+  const subject = document.getElementById('commSubject').value.trim();
+  if (!subject) { showToast('Subject is required.', 'error'); return; }
+  const entry = {
+    type: document.getElementById('commType').value,
+    date: document.getElementById('commDate').value,
+    recipient, subject,
+    body: document.getElementById('commBody').value,
+    status: document.getElementById('commStatus').value
+  };
+  const data = getData();
+  if (id) {
+    const idx = data.comms.findIndex(x => x.id === id);
+    if (idx >= 0) data.comms[idx] = { ...data.comms[idx], ...entry };
+  } else {
+    entry.id = uid();
+    entry.createdAt = new Date().toISOString();
+    data.comms.push(entry);
+  }
+  saveData(data);
+  closeModal('commModal');
+  renderAll();
+  showToast(id ? 'Communication updated.' : 'Communication created.');
+}
+
+function deleteComm(id) {
+  confirmAction('Delete Communication', 'Delete this communication?', function() {
+    const d = getData();
+    d.comms = d.comms.filter(x => x.id !== id);
+    saveData(d);
+    renderAll();
+    showToast('Communication deleted.');
+  });
+}
+
+function exportCommBody(id) {
+  const c = getComms().find(x => x.id === id);
+  if (!c) { showToast('Communication not found.', 'error'); return; }
+  const text = `Type: ${c.type.toUpperCase()}\nDate: ${c.date}\nRecipient: ${c.recipient}\nSubject: ${c.subject}\nStatus: ${c.status}\n\nBody:\n${c.body}`;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${c.type}_${c.subject.slice(0,30).replace(/[^a-zA-Z0-9]/g,'_')}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function renderComms() {
+  const data = getData().comms;
+  const search = (document.getElementById('commSearch').value || '').toLowerCase();
+  const filterType = document.getElementById('commFilterType').value;
+  const filterStatus = document.getElementById('commFilterStatus').value;
+  let filtered = data;
+  if (search) filtered = filtered.filter(c => (c.subject || '').toLowerCase().includes(search) || (c.recipient || '').toLowerCase().includes(search) || (c.body || '').toLowerCase().includes(search));
+  if (filterType) filtered = filtered.filter(c => c.type === filterType);
+  if (filterStatus) filtered = filtered.filter(c => c.status === filterStatus);
+  const tbody = document.getElementById('commTable');
+  const empty = document.getElementById('commEmpty');
+  if (filtered.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(c => `<tr>
+    <td><span class="badge badge-${c.type}">${esc(c.type)}</span></td>
+    <td>${esc(c.recipient)}</td>
+    <td><strong>${esc(c.subject)}</strong></td>
+    <td>${c.status === 'sent' ? '<span class="badge badge-sent">Sent</span>' : '<span class="badge badge-draft">Draft</span>'}</td>
+    <td style="font-size:0.8rem">${c.date || '-'}</td>
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="openCommModal('${c.id}')">Edit</button>
+      <button class="btn btn-outline btn-xs" onclick="exportCommBody('${c.id}')">Export</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteComm('${c.id}')">Del</button>
+    </td>
+  </tr>`).join('');
+}
+
+// === ADVOCACY ===
+function getAdvocacy() { return getData().advocacy; }
+
+function openAdvocacyModal(id) {
+  document.getElementById('advocacyEditId').value = id || '';
+  document.getElementById('advocacyModalTitle').textContent = id ? 'Edit Advocacy Material' : 'New Advocacy Material';
+  document.getElementById('advocacyTitle').value = '';
+  document.getElementById('advocacyType').value = 'infographic';
+  document.getElementById('advocacyChannel').value = 'social-media';
+  document.getElementById('advocacyAudience').value = '';
+  document.getElementById('advocacyReach').value = '';
+  document.getElementById('advocacyDate').value = todayStr();
+  document.getElementById('advocacyNotes').value = '';
+  if (id) {
+    const a = getAdvocacy().find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('advocacyTitle').value = a.title || '';
+    document.getElementById('advocacyType').value = a.materialType || 'infographic';
+    document.getElementById('advocacyChannel').value = a.channel || 'social-media';
+    document.getElementById('advocacyAudience').value = a.audience || '';
+    document.getElementById('advocacyReach').value = a.reach || '';
+    document.getElementById('advocacyDate').value = a.date || todayStr();
+    document.getElementById('advocacyNotes').value = a.notes || '';
+  }
+  document.getElementById('advocacyModal').classList.add('open');
+}
+
+function saveAdvocacy() {
+  const id = document.getElementById('advocacyEditId').value;
+  const title = document.getElementById('advocacyTitle').value.trim();
+  if (!title) { showToast('Title is required.', 'error'); return; }
+  const entry = {
+    title,
+    materialType: document.getElementById('advocacyType').value,
+    channel: document.getElementById('advocacyChannel').value,
+    audience: document.getElementById('advocacyAudience').value.trim(),
+    reach: parseInt(document.getElementById('advocacyReach').value) || 0,
+    date: document.getElementById('advocacyDate').value,
+    notes: document.getElementById('advocacyNotes').value.trim()
+  };
+  const data = getData();
+  if (id) {
+    const idx = data.advocacy.findIndex(x => x.id === id);
+    if (idx >= 0) data.advocacy[idx] = { ...data.advocacy[idx], ...entry };
+  } else {
+    entry.id = uid();
+    entry.createdAt = new Date().toISOString();
+    data.advocacy.push(entry);
+  }
+  saveData(data);
+  closeModal('advocacyModal');
+  renderAll();
+  showToast(id ? 'Material updated.' : 'Material created.');
+}
+
+function deleteAdvocacy(id) {
+  confirmAction('Delete Material', 'Delete this advocacy material?', function() {
+    const d = getData();
+    d.advocacy = d.advocacy.filter(x => x.id !== id);
+    saveData(d);
+    renderAll();
+    showToast('Material deleted.');
+  });
+}
+
+function renderAdvocacy() {
+  const data = getData().advocacy;
+  const search = (document.getElementById('advocacySearch').value || '').toLowerCase();
+  const filterChannel = document.getElementById('advocacyFilterChannel').value;
+  let filtered = data;
+  if (search) filtered = filtered.filter(a => (a.title || '').toLowerCase().includes(search) || (a.audience || '').toLowerCase().includes(search));
+  if (filterChannel) filtered = filtered.filter(a => a.channel === filterChannel);
+  const totalReach = filtered.reduce((s, a) => s + (parseInt(a.reach) || 0), 0);
+  document.getElementById('advocacyStats').innerHTML = `
+    <div class="stat card"><div class="value">${data.length}</div><div class="label">Total Materials</div></div>
+    <div class="stat card"><div class="value">${data.filter(a => a.channel === 'social-media').length}</div><div class="label">Social Media</div></div>
+    <div class="stat card"><div class="value">${data.filter(a => a.channel === 'print').length}</div><div class="label">Print</div></div>
+    <div class="stat card"><div class="value">${totalReach.toLocaleString()}</div><div class="label">Total Reach</div></div>
+  `;
+  const tbody = document.getElementById('advocacyTable');
+  const empty = document.getElementById('advocacyEmpty');
+  if (filtered.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = filtered.map(a => `<tr>
+    <td><strong>${esc(a.title)}</strong></td>
+    <td style="font-size:0.8rem;color:var(--muted)">${esc(a.materialType)}</td>
+    <td>${esc(a.channel)}</td>
+    <td style="font-size:0.85rem">${esc(a.audience || '-')}</td>
+    <td>${(parseInt(a.reach) || 0).toLocaleString()}</td>
+    <td style="font-size:0.8rem">${a.date || '-'}</td>
+    <td>
+      <button class="btn btn-outline btn-xs" onclick="openAdvocacyModal('${a.id}')">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteAdvocacy('${a.id}')">Del</button>
+    </td>
+  </tr>`).join('');
+}
+
+// === MONITORING ===
+function renderMonitoringReport() {
+  const select = document.getElementById('monitoringPPASelect');
+  const ppaId = select.value;
+  const reportDiv = document.getElementById('monitoringReport');
+  const dlBtn = document.getElementById('monitoringDownloadBtn');
+  if (!ppaId) {
+    reportDiv.innerHTML = '<p class="empty" style="padding:20px 0">Select a PPA to generate a status report.</p>';
+    dlBtn.style.display = 'none';
+    return;
+  }
+  const ppa = getPPAs().find(p => p.id === ppaId);
+  if (!ppa) { reportDiv.innerHTML = ''; dlBtn.style.display = 'none'; return; }
+  dlBtn.style.display = 'inline-flex';
+  const now = new Date().toLocaleString();
+  reportDiv.innerHTML = `
+    <div style="font-size:0.85rem;line-height:1.8">
+      <p><strong>Title:</strong> ${esc(ppa.title)}</p>
+      <p><strong>Policy Basis:</strong> ${esc(ppa.policyBasis || '-')}</p>
+      <p><strong>Status:</strong> ${ppa.status.charAt(0).toUpperCase() + ppa.status.slice(1)}</p>
+      <p><strong>Period:</strong> ${ppa.startDate || '-'} to ${ppa.endDate || '-'}</p>
+      <p><strong>Budget:</strong> &#8369;${typeof ppa.budget === 'number' ? ppa.budget.toFixed(2) : esc(ppa.budget || '0')}</p>
+      <p><strong>Beneficiaries:</strong> ${esc(ppa.beneficiaries || '-')}</p>
+      <p><strong>Personnel:</strong> ${esc(ppa.personnel || '-')}</p>
+      <p><strong>Resources:</strong> ${esc(ppa.resources || '-')}</p>
+      <p><strong>Documentary Requirements:</strong> ${esc(ppa.documentaryRequirements || '-')}</p>
+      <p><strong>Monitoring Notes:</strong> ${esc(ppa.monitoringNotes || '-')}</p>
+      <p style="margin-top:8px;color:var(--muted);font-size:0.75rem">Generated: ${now}</p>
+    </div>
+  `;
+}
+
+function downloadPPAReport() {
+  const select = document.getElementById('monitoringPPASelect');
+  const ppaId = select.value;
+  if (!ppaId) return;
+  const ppa = getPPAs().find(p => p.id === ppaId);
+  if (!ppa) return;
+  const now = new Date().toLocaleString();
+  const text = `PPA STATUS REPORT
+=================
+Generated: ${now}
+
+Title: ${ppa.title}
+Policy Basis: ${ppa.policyBasis || 'N/A'}
+Status: ${ppa.status.charAt(0).toUpperCase() + ppa.status.slice(1)}
+Period: ${ppa.startDate || 'N/A'} to ${ppa.endDate || 'N/A'}
+Budget: PHP ${typeof ppa.budget === 'number' ? ppa.budget.toFixed(2) : ppa.budget || '0'}
+Beneficiaries: ${ppa.beneficiaries || 'N/A'}
+Personnel: ${ppa.personnel || 'N/A'}
+Resources: ${ppa.resources || 'N/A'}
+Documentary Requirements: ${ppa.documentaryRequirements || 'N/A'}
+Monitoring Notes: ${ppa.monitoringNotes || 'N/A'}
+`;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `PPA_Report_${ppa.title.replace(/[^a-zA-Z0-9]/g,'_')}.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function downloadConsolidatedReport() {
+  const ppas = getPPAs();
+  const now = new Date().toLocaleString();
+  let text = `CONSOLIDATED PPA REPORT
+========================
+Generated: ${now}
+
+Summary:
+  Total PPAs: ${ppas.length}
+  Planning: ${ppas.filter(p => p.status === 'planning').length}
+  Ongoing: ${ppas.filter(p => p.status === 'ongoing').length}
+  Completed: ${ppas.filter(p => p.status === 'completed').length}
+  Reported: ${ppas.filter(p => p.status === 'reported').length}
+  Total Budget: PHP ${ppas.reduce((s, p) => s + (typeof p.budget === 'number' ? p.budget : parseFloat(p.budget) || 0), 0).toFixed(2)}
+
+`;
+  ppas.forEach((p, i) => {
+    text += `\n${i+1}. ${p.title}
+   Status: ${p.status}
+   Period: ${p.startDate || 'N/A'} - ${p.endDate || 'N/A'}
+   Budget: PHP ${typeof p.budget === 'number' ? p.budget.toFixed(2) : p.budget || '0'}
+   Beneficiaries: ${p.beneficiaries || 'N/A'}
+`;
+  });
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Consolidated_PPA_Report.txt`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// === DASHBOARD ===
+function renderDashboard() {
+  const ppas = getPPAs();
+  const sdo = getData().sdoLogs;
+  const spt = getData().sptTasks;
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const sevenDaysFromNow = new Date(today);
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+  document.getElementById('dashStats').innerHTML = `
+    <div class="stat card"><div class="value">${ppas.length}</div><div class="label">Total PPAs</div></div>
+    <div class="stat card"><div class="value">${ppas.filter(p => p.status === 'ongoing').length}</div><div class="label">Ongoing</div></div>
+    <div class="stat card"><div class="value">${ppas.filter(p => p.status === 'completed' || p.status === 'reported').length}</div><div class="label">Completed/Reported</div></div>
+    <div class="stat card"><div class="value">&#8369;${ppas.reduce((s, p) => s + (typeof p.budget === 'number' ? p.budget : parseFloat(p.budget) || 0), 0).toFixed(2)}</div><div class="label">Total Budget</div><div class="sub">All PPAs</div></div>
+  `;
+
+  document.getElementById('dashStatusBreakdown').innerHTML = ['planning','ongoing','completed','reported'].map(s => {
+    const count = ppas.filter(p => p.status === s).length;
+    const pct = ppas.length ? Math.round(count / ppas.length * 100) : 0;
+    return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+      <span style="min-width:90px;font-size:0.85rem">${s.charAt(0).toUpperCase() + s.slice(1)}</span>
+      <div style="flex:1;height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${s === 'planning' ? '#eab308' : s === 'ongoing' ? '#3b82f6' : s === 'completed' ? '#22c55e' : '#6366f1'};border-radius:4px;transition:width 0.3s"></div>
+      </div>
+      <span style="min-width:30px;text-align:right;font-size:0.85rem;font-weight:600">${count}</span>
+    </div>`;
+  }).join('');
+
+  const upcomingSDO = sdo.filter(e => e.followUpDate && e.status !== 'resolved').filter(e => {
+    const fd = new Date(e.followUpDate + 'T00:00:00');
+    return fd <= sevenDaysFromNow;
+  });
+  document.getElementById('dashSDOFollowups').innerHTML = upcomingSDO.length
+    ? '<div style="font-size:0.85rem">' + upcomingSDO.map(e => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span>${esc(e.office)} - ${esc(e.purpose)}</span><span style="color:var(--muted);font-size:0.78rem">${e.followUpDate}</span></div>`).join('') + '</div>'
+    : '<p class="empty" style="padding:12px 0">No upcoming follow-ups due within 7 days.</p>';
+
+  const pendingSPT = spt.filter(t => t.status !== 'done');
+  document.getElementById('dashSPTTasks').innerHTML = pendingSPT.length
+    ? '<div style="font-size:0.85rem">' + pendingSPT.map(t => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span>${esc(t.task)}</span><span style="color:var(--muted);font-size:0.78rem">${t.status === 'in-progress' ? 'In Progress' : 'Pending'}</span></div>`).join('') + '</div>'
+    : '<p class="empty" style="padding:12px 0">No pending SPT tasks.</p>';
+}
+
+// === BACKUP ===
+function exportData() {
+  const data = getData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const date = todayStr();
+  a.download = `ppa_workbench_backup_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Data exported successfully.');
+}
+
+function importData() {
+  const input = document.getElementById('importFileInput');
+  if (!input.files || !input.files[0]) { showToast('Please select a JSON file first.', 'error'); return; }
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.ppas || !data.coordination || !data.sptTasks || !data.sdoLogs || !data.comms || !data.advocacy) {
+        showToast('Invalid backup file format.', 'error');
+        return;
+      }
+      confirmAction('Import Data', 'This will replace all current data. Are you sure?', function() {
+        saveData(data);
+        renderAll();
+        showToast('Data imported successfully.');
+      });
+    } catch (err) {
+      showToast('Invalid JSON file.', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function eraseData() {
+  confirmAction('Erase All Data', 'This will permanently delete all PPA Workbench data. This action cannot be undone. Are you sure?', function() {
+    confirmAction('Are you really sure?', 'All PPAs, coordination logs, SPT tasks, SDO entries, communications, and advocacy materials will be lost forever.', function() {
+      saveData({ ppas: [], coordination: [], sptTasks: [], sdoLogs: [], comms: [], advocacy: [] });
+      renderAll();
+      showToast('All data erased.');
+    });
+  });
+}
+
+// === RENDER ALL ===
+function renderAll() {
+  const activePage = document.querySelector('.page.active');
+  if (!activePage) return;
+  const pageId = activePage.id.replace('page-', '');
+  switch (pageId) {
+    case 'dashboard': renderDashboard(); break;
+    case 'ppas': renderPPAs(); break;
+    case 'calendar': renderCalendar(); break;
+    case 'coordination': renderCoordination(); break;
+    case 'monitoring':
+      const select = document.getElementById('monitoringPPASelect');
+      const currentVal = select.value;
+      select.innerHTML = '<option value="">-- Select PPA --</option>' + getPPAs().map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+      select.value = currentVal || '';
+      renderMonitoringReport();
+      break;
+    case 'spt': renderSPT(); break;
+    case 'sdo': renderSDO(); break;
+    case 'comms': renderComms(); break;
+    case 'advocacy': renderAdvocacy(); break;
+  }
+  const ppaSelects = document.querySelectorAll('select[id$="PPA"]:not(#monitoringPPASelect)');
+  ppaSelects.forEach(s => {
+    const val = s.value;
+    s.innerHTML = '<option value="">-- None --</option>' + getPPAs().map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+    s.value = val;
+  });
+}
+
+// INIT
+renderAll();
+</script>
+</body>
+</html>

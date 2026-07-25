@@ -1,0 +1,11 @@
+node_modules/
+.env
+*.log
+uploads/*
+!uploads/.gitkeep
+backup/backups/
+dist/
+.DS_Store
+plane-source/
+backend/.env
+frontend/.env
