@@ -1,15 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { getTeams, createTeam, addMember, removeMember, registerUser, getUsers } from '../api/client';
 import { useToast } from '../components/Toast';
+import useConfirm from '../hooks/useConfirm';
+import SearchBar from '../components/SearchBar';
+import Pagination from '../components/Pagination';
 
 export default function TeamList() {
   const toast = useToast();
+  const { confirm: confirmAction, dialog: confirmDialog } = useConfirm();
   const [teams, setTeams] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showUserForm, setShowUserForm] = useState(false);
+  const [search, setSearch] = useState('');
+  const [userPage, setUserPage] = useState(1);
   const [form, setForm] = useState({ name: '', description: '' });
   const [userForm, setUserForm] = useState({ name: '', email: '', password: '' });
   const [addMemberForm, setAddMemberForm] = useState({ teamId: '', userId: '', roleInTeam: 'Coordinator' });
@@ -57,12 +63,20 @@ export default function TeamList() {
   };
 
   const handleRemoveMember = async (teamId, userId) => {
-    if (!confirm('Remove this member?')) return;
+    if (!await confirmAction('Remove member', 'Are you sure you want to remove this member from the team?')) return;
     try {
       await removeMember(teamId, userId);
       await loadAll();
     } catch (err) { toast(err.message); }
   };
+
+  const userPageSize = 15;
+  const filteredUsers = useMemo(() => {
+    const q = search.toLowerCase();
+    return q ? users.filter(u => (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)) : users;
+  }, [users, search]);
+  const userTotalPages = Math.ceil(filteredUsers.length / userPageSize);
+  const pagedUsers = filteredUsers.slice((userPage - 1) * userPageSize, userPage * userPageSize);
 
   if (loading) return <Spinner />;
 
@@ -107,6 +121,7 @@ export default function TeamList() {
         <div className="flex items-center gap-3 mb-4">
           <h2 className="text-lg font-bold text-slate-900">Users ({users.length})</h2>
           <div className="h-px flex-1 bg-surface-border" />
+          <div className="ml-auto max-w-xs flex-1"><SearchBar value={search} onChange={v => { setSearch(v); setUserPage(1); }} placeholder="Search users..." /></div>
         </div>
         <div className="card overflow-hidden">
           <table className="w-full">
@@ -118,7 +133,7 @@ export default function TeamList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-border">
-              {users.map(u => (
+              {pagedUsers.map(u => (
                 <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                   <td className="table-cell font-semibold">{u.name}</td>
                   <td className="table-cell text-slate-500">{u.email}</td>
@@ -127,6 +142,7 @@ export default function TeamList() {
               ))}
             </tbody>
           </table>
+          <Pagination page={userPage} totalPages={userTotalPages} onChange={setUserPage} />
         </div>
       </div>
 
@@ -181,7 +197,7 @@ export default function TeamList() {
                     <div key={m.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-2.5 text-sm">
                         <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-xs font-bold text-brand-700">
-                          {m.name.charAt(0)}
+                          {(m.name || '?').charAt(0)}
                         </div>
                         <div>
                           <span className="text-slate-700 font-semibold">{m.name}</span>
@@ -204,6 +220,7 @@ export default function TeamList() {
           ))}
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }

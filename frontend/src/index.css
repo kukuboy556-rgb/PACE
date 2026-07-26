@@ -9,6 +9,12 @@
   * {
     @apply border-surface-border;
   }
+  .dark body, body.dark {
+    @apply bg-surface-dark text-slate-200;
+  }
+  .dark * {
+    @apply border-surface-dark-border;
+  }
 }
 
 @layer components {
@@ -138,15 +144,35 @@
   backdrop-filter: blur(8px);
 }
 
-.sidebar-link {
-  @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200;
-}
-.sidebar-link-active {
-  @apply sidebar-link bg-sidebar-active text-sidebar-text-active shadow-sm;
-}
-.sidebar-link-inactive {
-  @apply sidebar-link text-sidebar-text hover:bg-sidebar-hover hover:text-white;
-}
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200;
+  }
+  .sidebar-link-active {
+    @apply sidebar-link bg-sidebar-active text-sidebar-text-active shadow-sm;
+  }
+  .sidebar-link-inactive {
+    @apply sidebar-link text-sidebar-text hover:bg-sidebar-hover hover:text-white;
+  }
+
+  .dark .card { @apply bg-surface-dark-card border-surface-dark-border; }
+  .dark .input, .dark .select, .dark .textarea { @apply bg-surface-dark-card border-surface-dark-border text-slate-200 placeholder:text-slate-500 focus:border-brand-500; }
+  .dark .table-header { @apply text-slate-400; }
+  .dark .table-cell { @apply text-slate-300; }
+  .dark .kanban-column { @apply bg-slate-800/50 border-slate-700/50; }
+  .dark .kanban-card { @apply bg-surface-dark-card border-slate-700/80 text-slate-200; }
+  .dark .btn-secondary { @apply bg-surface-dark-card text-slate-300 border-surface-dark-border hover:bg-slate-700/50; }
+  .dark .btn-ghost { @apply text-slate-400 hover:text-slate-200 hover:bg-slate-700/50; }
+  .dark .badge-blue { @apply bg-blue-900/50 text-blue-300; }
+  .dark .badge-green { @apply bg-emerald-900/50 text-emerald-300; }
+  .dark .badge-red { @apply bg-red-900/50 text-red-300; }
+  .dark .badge-amber { @apply bg-amber-900/50 text-amber-300; }
+  .dark .badge-gray { @apply bg-slate-700/50 text-slate-300; }
+  .dark .badge-purple { @apply bg-purple-900/50 text-purple-300; }
+  .dark .badge-orange { @apply bg-orange-900/50 text-orange-300; }
+  .dark .modal-overlay { background: rgba(0, 0, 0, 0.7); }
+  .dark .tab-btn-active { @apply bg-surface-dark-card text-slate-100 border-surface-dark-border shadow-sm; }
+  .dark .tab-btn-inactive { @apply text-slate-400 hover:text-slate-200 hover:bg-slate-800/50; }
+  .dark .select-trigger:hover { @apply bg-slate-700/50 border-slate-600; }
 
 .stat-card {
   @apply rounded-xl p-5 text-white relative overflow-hidden;
@@ -162,4 +188,12 @@
 }
 .select-trigger:hover {
   @apply bg-slate-100 border-slate-200;
+}
+
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }

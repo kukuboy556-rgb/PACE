@@ -15,14 +15,24 @@ router.post('/projects/:projectId/closure', authenticate, requireRole('PDO', 'Co
     return res.status(409).json({ error: 'Closure report already exists for this project' });
   }
 
-  await pool.query('UPDATE projects SET status = $1 WHERE id = $2', ['Closed', req.params.projectId]);
-
-  const { rows } = await pool.query(
-    `INSERT INTO closure_reports (project_id, lessons_learned, outcome_indicator, submitted_by)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [req.params.projectId, lessonsLearned, outcomeIndicator, req.user.userId]
-  );
-  res.status(201).json(rows[0]);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `INSERT INTO closure_reports (project_id, lessons_learned, outcome_indicator, submitted_by)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [req.params.projectId, lessonsLearned, outcomeIndicator, req.user.userId]
+    );
+    await client.query('UPDATE projects SET status = $1 WHERE id = $2', ['Closed', req.params.projectId]);
+    await client.query('COMMIT');
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Closure submission failed:', err);
+    res.status(500).json({ error: 'Failed to submit closure report' });
+  } finally {
+    client.release();
+  }
 });
 
 router.get('/projects/:projectId/closure', authenticate, async (req, res) => {

@@ -1,10 +1,10 @@
 const express = require('express');
 const { pool } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/dashboard/pdo', authenticate, async (_req, res) => {
+router.get('/dashboard/pdo', authenticate, requireRole('PDO'), async (_req, res) => {
 
   const teams = await pool.query('SELECT * FROM teams ORDER BY name');
   const dashboard = await Promise.all(

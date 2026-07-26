@@ -19,17 +19,19 @@ export default function LabelPicker({ teamId, taskId, onUpdate }) {
   }, [taskId]);
 
   const toggle = async (labelId) => {
+    if (!taskId) return;
+    const wasActive = taskLabels.find(l => l.id === labelId);
+    setTaskLabels(prev => wasActive ? prev.filter(l => l.id !== labelId) : [...prev, labels.find(l => l.id === labelId)]);
     try {
-      if (taskLabels.find(l => l.id === labelId)) {
+      if (wasActive) {
         await removeTaskLabel(taskId, labelId);
-        setTaskLabels(prev => prev.filter(l => l.id !== labelId));
       } else {
         await addTaskLabel(taskId, labelId);
-        const lbl = labels.find(l => l.id === labelId);
-        setTaskLabels(prev => [...prev, lbl]);
       }
       onUpdate?.();
-    } catch {}
+    } catch {
+      setTaskLabels(prev => wasActive ? [...prev, labels.find(l => l.id === labelId)] : prev.filter(l => l.id !== labelId));
+    }
   };
 
   const handleCreate = async (e) => {
@@ -40,7 +42,9 @@ export default function LabelPicker({ teamId, taskId, onUpdate }) {
       setLabels(prev => [...prev, lbl]);
       setNewName('');
       setShowNew(false);
-    } catch {}
+    } catch (err) {
+      console.error('Failed to create label:', err);
+    }
   };
 
   return (

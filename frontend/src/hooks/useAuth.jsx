@@ -31,9 +31,13 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    await apiLogout();
-    setUser(null);
-    setTeams([]);
+    try {
+      await apiLogout();
+    } catch {
+    } finally {
+      setUser(null);
+      setTeams([]);
+    }
   };
 
   const isPDO = user?.isPDO ?? false;

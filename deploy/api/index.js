@@ -2,36 +2,27 @@ const BACKEND = 'https://backend-three-zeta-62.vercel.app';
 
 export default async (req, res) => {
   try {
-    const chunks = [];
-    for await (const c of req) chunks.push(c);
-    const body = Buffer.concat(chunks);
-
     const url = BACKEND + req.url;
-    const headers = {};
-    for (const [k, v] of Object.entries(req.headers)) {
-      if (!['host', 'connection', 'content-length', 'transfer-encoding'].includes(k)) {
-        headers[k] = v;
-      }
-    }
+    const headers = Object.fromEntries(
+      Object.entries(req.headers).filter(
+        ([k]) => !['host', 'connection', 'transfer-encoding'].includes(k)
+      )
+    );
 
-    const backendRes = await fetch(url, {
-      method: req.method,
-      headers,
-      body: body.length ? body : undefined,
-      redirect: 'manual',
-    });
+    const body = req.method === 'GET' || req.method === 'HEAD'
+      ? undefined
+      : await new Promise(r => { let d = ''; req.on('data', c => d += c); req.on('end', () => r(d || undefined)); });
 
-    const resHeaders = {};
-    backendRes.headers.forEach((value, key) => {
-      if (key === 'set-cookie') {
-        resHeaders[key] = value.replace(/; ?Secure/gi, '');
-      } else if (!['connection', 'keep-alive', 'transfer-encoding'].includes(key)) {
-        resHeaders[key] = value;
+    const backendRes = await fetch(url, { method: req.method, headers, body });
+
+    const outHeaders = {};
+    backendRes.headers.forEach((v, k) => {
+      if (!['connection', 'keep-alive', 'transfer-encoding'].includes(k)) {
+        outHeaders[k] = k === 'set-cookie' ? v.replace(/; ?Secure/gi, '') : v;
       }
     });
 
-    res.statusCode = backendRes.status;
-    res.writeHead(backendRes.status, resHeaders);
+    res.writeHead(backendRes.status, outHeaders);
     res.end(await backendRes.text());
   } catch (err) {
     res.statusCode = 502;

@@ -17,13 +17,13 @@ router.post('/projects/:projectId/views', authenticate, async (req, res) => {
   if (!name) return res.status(400).json({ error: 'View name is required' });
   const { rows } = await pool.query(
     'INSERT INTO saved_views (project_id, name, filters, created_by) VALUES ($1, $2, $3, $4) RETURNING *',
-    [req.params.projectId, name, JSON.stringify(filters || {}), req.user.id]
+    [req.params.projectId, name, JSON.stringify(filters || {}), req.user.userId]
   );
   res.status(201).json(rows[0]);
 });
 
 router.delete('/views/:id', authenticate, async (req, res) => {
-  await pool.query('DELETE FROM saved_views WHERE id = $1 AND created_by = $2', [req.params.id, req.user.id]);
+  await pool.query('DELETE FROM saved_views WHERE id = $1 AND created_by = $2', [req.params.id, req.user.userId]);
   res.json({ message: 'View deleted' });
 });
 

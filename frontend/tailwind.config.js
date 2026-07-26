@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
@@ -18,6 +19,9 @@ export default {
           DEFAULT: '#f4f5f8',
           card: '#ffffff',
           border: '#e8e9ef',
+          'dark': '#0f1117',
+          'dark-card': '#1a1d2b',
+          'dark-border': '#2a2d3a',
         },
         brand: {
           50: '#fff7ed',

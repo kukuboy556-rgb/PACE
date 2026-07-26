@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getVerificationLogs, getTeams, getTeamProjects, getProjectTasks, verifyTask } from '../api/client';
 import { useToast } from '../components/Toast';
+import useExport from '../hooks/useExport';
+import SearchBar from '../components/SearchBar';
+import Pagination from '../components/Pagination';
+
+const PAGE_SIZE = 10;
 
 export default function VerificationLog() {
   const toast = useToast();
@@ -10,8 +15,12 @@ export default function VerificationLog() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ teamId: '', from: '', to: '' });
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [verifyForm, setVerifyForm] = useState({ teamId: '', projectId: '', taskId: '', result: 'Verified', comment: '' });
   const [message, setMessage] = useState('');
+
+  const { exportCSV } = useExport('verification_log');
 
   const loadLogs = async () => {
     const params = {};
@@ -30,6 +39,14 @@ export default function VerificationLog() {
   useEffect(() => { if (verifyForm.projectId) { getProjectTasks(verifyForm.projectId).then(setTasks); } else { setTasks([]); } setVerifyForm(f => ({ ...f, taskId: '' })); }, [verifyForm.projectId]);
   useEffect(() => { loadLogs(); }, [filters]);
 
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return q ? logs.filter(l => (l.task_title || '').toLowerCase().includes(q) || (l.project_title || '').toLowerCase().includes(q) || (l.verified_by_name || '').toLowerCase().includes(q)) : logs;
+  }, [logs, search]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const handleVerify = async (e) => {
     e.preventDefault();
     try {
@@ -41,15 +58,15 @@ export default function VerificationLog() {
     } catch (err) { toast(err.message); }
   };
 
-  const exportCSV = () => {
-    const headers = ['Task', 'Project', 'Result', 'Comment', 'Verified By', 'Date'];
-    const rows = logs.map(l => [l.task_title, l.project_title, l.result, l.comment || '', l.verified_by_name, new Date(l.verified_at).toLocaleString()]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'verification_log.csv'; a.click();
-    URL.revokeObjectURL(url);
+  const handleExport = () => {
+    exportCSV(logs, [
+      { label: 'Task', accessor: l => l.task_title },
+      { label: 'Project', accessor: l => l.project_title },
+      { label: 'Result', accessor: l => l.result },
+      { label: 'Comment', accessor: l => l.comment || '' },
+      { label: 'Verified By', accessor: l => l.verified_by_name },
+      { label: 'Date', accessor: l => new Date(l.verified_at).toLocaleString() },
+    ]);
   };
 
   return (
@@ -59,7 +76,7 @@ export default function VerificationLog() {
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Verification Log</h1>
           <p className="text-sm text-slate-500 mt-1">Record and export task verifications</p>
         </div>
-        <button onClick={exportCSV} className="btn-secondary btn-sm" disabled={logs.length === 0}>
+        <button onClick={handleExport} disabled={logs.length === 0} className="btn-secondary btn-sm">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
@@ -81,64 +98,25 @@ export default function VerificationLog() {
       <form onSubmit={handleVerify} className="card p-5 space-y-4">
         <h2 className="font-bold text-slate-900">Record Verification</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="label">Team</label>
-            <select required value={verifyForm.teamId} onChange={e => setVerifyForm({ ...verifyForm, teamId: e.target.value })} className="select">
-              <option value="">Select team</option>
-              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Project</label>
-            <select required value={verifyForm.projectId} onChange={e => setVerifyForm({ ...verifyForm, projectId: e.target.value })} className="select">
-              <option value="">Select project</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Task</label>
-            <select required value={verifyForm.taskId} onChange={e => setVerifyForm({ ...verifyForm, taskId: e.target.value })} className="select">
-              <option value="">Select task</option>
-              {tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Result</label>
-            <select value={verifyForm.result} onChange={e => setVerifyForm({ ...verifyForm, result: e.target.value })} className="select">
-              <option value="Verified">Verified</option>
-              <option value="Discrepancy">Discrepancy</option>
-            </select>
-          </div>
+          <div><label className="label">Team</label><select required value={verifyForm.teamId} onChange={e => setVerifyForm({ ...verifyForm, teamId: e.target.value })} className="select"><option value="">Select team</option>{teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+          <div><label className="label">Project</label><select required value={verifyForm.projectId} onChange={e => setVerifyForm({ ...verifyForm, projectId: e.target.value })} className="select"><option value="">Select project</option>{projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select></div>
+          <div><label className="label">Task</label><select required value={verifyForm.taskId} onChange={e => setVerifyForm({ ...verifyForm, taskId: e.target.value })} className="select"><option value="">Select task</option>{tasks.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}</select></div>
+          <div><label className="label">Result</label><select value={verifyForm.result} onChange={e => setVerifyForm({ ...verifyForm, result: e.target.value })} className="select"><option value="Verified">Verified</option><option value="Discrepancy">Discrepancy</option></select></div>
         </div>
-        <div>
-          <label className="label">Comment (optional)</label>
-          <textarea placeholder="Add notes about this verification..." value={verifyForm.comment}
-            onChange={e => setVerifyForm({ ...verifyForm, comment: e.target.value })} className="textarea" rows={2} />
-        </div>
+        <div><label className="label">Comment (optional)</label><textarea placeholder="Add notes about this verification..." value={verifyForm.comment} onChange={e => setVerifyForm({ ...verifyForm, comment: e.target.value })} className="textarea" rows={2} /></div>
         <button type="submit" className="btn-primary">Submit Verification</button>
       </form>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label className="label">Filter by Team</label>
-          <select value={filters.teamId} onChange={e => setFilters({ ...filters, teamId: e.target.value })} className="select">
-            <option value="">All teams</option>
-            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">From</label>
-          <input type="date" value={filters.from} onChange={e => setFilters({ ...filters, from: e.target.value })} className="input" />
-        </div>
-        <div>
-          <label className="label">To</label>
-          <input type="date" value={filters.to} onChange={e => setFilters({ ...filters, to: e.target.value })} className="input" />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div><label className="label">Filter by Team</label><select value={filters.teamId} onChange={e => { setFilters({ ...filters, teamId: e.target.value }); setPage(1); }} className="select"><option value="">All teams</option>{teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+        <div><label className="label">From</label><input type="date" value={filters.from} onChange={e => { setFilters({ ...filters, from: e.target.value }); setPage(1); }} className="input" /></div>
+        <div><label className="label">To</label><input type="date" value={filters.to} onChange={e => { setFilters({ ...filters, to: e.target.value }); setPage(1); }} className="input" /></div>
+        <div><SearchBar value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search tasks, projects..." /></div>
       </div>
 
       {loading ? <Spinner /> : (
         <div className="card overflow-hidden">
-          {logs.length === 0 ? (
+          {paged.length === 0 ? (
             <p className="text-sm text-slate-400 p-8 text-center">No verification records found.</p>
           ) : (
             <table className="w-full">
@@ -153,13 +131,11 @@ export default function VerificationLog() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border">
-                {logs.map(l => (
+                {paged.map(l => (
                   <tr key={l.id} className="hover:bg-slate-50 transition-colors">
                     <td className="table-cell font-semibold">{l.task_title}</td>
                     <td className="table-cell text-slate-500">{l.project_title}</td>
-                    <td className="table-cell">
-                      <span className={`badge text-xs ${l.result === 'Verified' ? 'badge-green' : 'badge-red'}`}>{l.result}</span>
-                    </td>
+                    <td className="table-cell"><span className={`badge text-xs ${l.result === 'Verified' ? 'badge-green' : 'badge-red'}`}>{l.result}</span></td>
                     <td className="table-cell text-slate-500">{l.comment || '\u2014'}</td>
                     <td className="table-cell font-medium">{l.verified_by_name}</td>
                     <td className="table-cell text-slate-500">{new Date(l.verified_at).toLocaleDateString()}</td>
@@ -168,6 +144,7 @@ export default function VerificationLog() {
               </tbody>
             </table>
           )}
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
         </div>
       )}
     </div>

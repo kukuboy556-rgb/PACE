@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getPDODashboard, getTeams, getTeamProjects } from '../api/client';
+import { getPDODashboard, getTeams, getTeamProjects, getCalendar } from '../api/client';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../components/Toast';
+import { SimpleBarChart, DonutChart } from '../components/Charts';
+import ActivityTimeline from '../components/ActivityTimeline';
 
 export default function PDODashboard() {
   const { isPDO, isSchoolHead, teams: userTeams } = useAuth();
@@ -30,6 +32,15 @@ export default function PDODashboard() {
 }
 
 function PDOView({ data }) {
+  const chartData = useMemo(() => ({
+    projectData: (data.teams || []).map(({ team, stats }) => ({ name: team.name, value: stats.activeProjects || 0 })),
+    taskData: [
+      { name: 'Completed', value: data.totals.doneTasks || 0 },
+      { name: 'In Progress', value: (data.totals.totalTasks || 0) - (data.totals.doneTasks || 0) - (data.totals.overdueTasks || 0) },
+      { name: 'Overdue', value: data.totals.overdueTasks || 0 },
+    ],
+  }), [data]);
+
   return (
     <div className="space-y-8">
       <div className="flex items-end justify-between">
@@ -54,6 +65,17 @@ function PDOView({ data }) {
         <StatCard label="Total Tasks" value={data.totals.totalTasks} color="slate" />
         <StatCard label="Completed" value={data.totals.doneTasks} color="emerald" />
         <StatCard label="Overdue" value={data.totals.overdueTasks} color="red" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="card p-5">
+          <h3 className="text-sm font-bold text-slate-900 mb-3">Active Projects by Team</h3>
+          <SimpleBarChart data={chartData.projectData} height={220} />
+        </div>
+        <div className="card p-5">
+          <h3 className="text-sm font-bold text-slate-900 mb-3">Task Distribution</h3>
+          <DonutChart data={chartData.taskData} height={220} />
+        </div>
       </div>
 
       <div>

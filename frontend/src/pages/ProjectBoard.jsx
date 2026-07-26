@@ -6,15 +6,17 @@ import { CSS } from '@dnd-kit/utilities';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
-import { getProject, getProjectTasks, createTask, updateTask, deleteTask, getProjectDocuments, uploadDocument, getClosure, submitClosure, reopenProject, getTaskComments, addTaskComment, getProjectBudgets, createBudget, updateBudget, getTeamLabels, getProjectViews, createProjectView, deleteView, getProjectTaskLabels } from '../api/client';
+import { getProject, getProjectTasks, createTask, updateTask, deleteTask, getProjectDocuments, uploadDocument, getClosure, submitClosure, reopenProject, getTaskComments, addTaskComment, getProjectBudgets, createBudget, updateBudget, getTeamLabels, getProjectViews, createProjectView, getProjectTaskLabels } from '../api/client';
 import { useToast } from '../components/Toast';
 import LabelPicker from '../components/LabelPicker';
+import useConfirm from '../hooks/useConfirm';
 
 const COLUMNS = ['To Do', 'In Progress', 'Blocked', 'Done'];
 
 export default function ProjectBoard() {
   const { teamId, projectId } = useParams();
   const toast = useToast();
+  const { confirm: confirmAction, dialog: confirmDialog } = useConfirm();
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -82,7 +84,7 @@ export default function ProjectBoard() {
   };
 
   const handleDeleteTask = async (id) => {
-    if (!confirm('Delete this task?')) return;
+    if (!await confirmAction('Delete task', 'Are you sure you want to delete this task?')) return;
     try { await deleteTask(id); setSelectedTask(null); await loadAll(); } catch (err) { toast(err.message); }
   };
 
@@ -92,7 +94,7 @@ export default function ProjectBoard() {
   };
 
   const handleReopen = async () => {
-    if (!confirm('Reopen this project? This will be logged.')) return;
+    if (!await confirmAction('Reopen project', 'Are you sure you want to reopen this project? This will be logged.', { variant: 'warning' })) return;
     try { await reopenProject(projectId); await loadAll(); } catch (err) { toast(err.message); }
   };
 
@@ -100,10 +102,11 @@ export default function ProjectBoard() {
     const file = e.target.files[0];
     if (!file || !selectedTask) return;
     try { await uploadDocument(selectedTask.id, file); setShowDocUpload(false); await loadAll(); } catch (err) { toast(err.message); }
+    e.target.value = '';
   };
 
   const loadComments = async (taskId) => {
-    try { const c = await getTaskComments(taskId); setTaskComments(c); } catch {}
+    try { const c = await getTaskComments(taskId); setTaskComments(c); } catch (err) { console.error('Failed to load comments:', err); }
   };
 
   const handleAddComment = async () => {
@@ -674,7 +677,7 @@ function TaskModal({ task, teamId, documents, comments, commentText, onCommentCh
               <div className="space-y-4 text-sm">
                 <div>
                   <p className="text-xs text-slate-500 font-semibold mb-1">Description</p>
-                  <div className="text-slate-700 prose prose-sm max-w-none bg-slate-50 rounded-xl p-4" dangerouslySetInnerHTML={{ __html: task.description || 'No description' }} />
+                  <div className="text-slate-700 prose prose-sm max-w-none bg-slate-50 rounded-xl p-4" dangerouslySetInnerHTML={{ __html: task.description ? task.description.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '').replace(/on\w+\s*=\s*["'][^"']*["']/gi, '') : 'No description' }} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-50 rounded-xl p-3">
@@ -772,6 +775,7 @@ function TaskModal({ task, teamId, documents, comments, commentText, onCommentCh
           </div>
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }

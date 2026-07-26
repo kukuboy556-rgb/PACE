@@ -4,26 +4,6 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/:teamId/labels', authenticate, async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM labels WHERE team_id = $1 ORDER BY name', [req.params.teamId]);
-  res.json(rows);
-});
-
-router.post('/:teamId/labels', authenticate, requireRole('PDO', 'Coordinator'), async (req, res) => {
-  const { name, color } = req.body;
-  if (!name) return res.status(400).json({ error: 'Label name is required' });
-  try {
-    const { rows } = await pool.query(
-      'INSERT INTO labels (team_id, name, color) VALUES ($1, $2, $3) RETURNING *',
-      [req.params.teamId, name, color || '#3b82f6']
-    );
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Label already exists' });
-    throw err;
-  }
-});
-
 router.delete('/labels/:id', authenticate, requireRole('PDO', 'Coordinator'), async (req, res) => {
   await pool.query('DELETE FROM labels WHERE id = $1', [req.params.id]);
   res.json({ message: 'Label deleted' });

@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getComplianceForms, createComplianceForm, getComplianceSubmissions, createComplianceSubmission, updateComplianceSubmission, saveSchoolFormData, getSchoolFormData, getTeams } from '../api/client';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
+import SearchBar from '../components/SearchBar';
+import Pagination from '../components/Pagination';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const STATUS_COLORS = { 'Pending': 'bg-slate-100 text-slate-600', 'On Track': 'bg-blue-100 text-blue-700', 'Late': 'bg-red-100 text-red-700', 'Submitted': 'bg-emerald-100 text-emerald-700', 'Acknowledged': 'bg-purple-100 text-purple-700' };
@@ -22,6 +24,9 @@ export default function CompliancePage() {
   const [formDataEntry, setFormDataEntry] = useState({ formCode: '', periodLabel: '', data: '{}' });
   const [teams, setTeams] = useState([]);
   const [filter, setFilter] = useState({ formId: '', status: '' });
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const loadAll = async () => {
     try {
@@ -83,6 +88,13 @@ export default function CompliancePage() {
 
   const now = new Date();
   const overdue = submissions.filter(s => s.status !== 'Submitted' && s.status !== 'Acknowledged' && new Date(s.due_date) < now);
+
+  const filteredSubmissions = useMemo(() => {
+    const q = search.toLowerCase();
+    return q ? submissions.filter(s => (s.form_name || '').toLowerCase().includes(q) || (s.form_code || '').toLowerCase().includes(q) || (s.period_label || '').toLowerCase().includes(q)) : submissions;
+  }, [submissions, search]);
+  const submissionTotalPages = Math.ceil(filteredSubmissions.length / PAGE_SIZE);
+  const pagedSubmissions = filteredSubmissions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const tabs = [
     { key: 'submissions', label: 'Submissions', icon: CheckIcon },
@@ -208,24 +220,25 @@ export default function CompliancePage() {
 
       {tab === 'submissions' && (
         <div>
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-4 mb-4 flex-wrap">
             <div className="flex items-center gap-2 text-sm">
               <label className="text-xs font-semibold text-slate-500">Form:</label>
-              <select value={filter.formId} onChange={e => setFilter({ ...filter, formId: e.target.value })} className="select text-xs max-w-[180px] py-1.5">
+              <select value={filter.formId} onChange={e => { setFilter({ ...filter, formId: e.target.value }); setPage(1); }} className="select text-xs max-w-[180px] py-1.5">
                 <option value="">All forms</option>
                 {forms.map(f => <option key={f.id} value={f.id}>{f.code} - {f.name}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <label className="text-xs font-semibold text-slate-500">Status:</label>
-              <select value={filter.status} onChange={e => setFilter({ ...filter, status: e.target.value })} className="select text-xs max-w-[140px] py-1.5">
+              <select value={filter.status} onChange={e => { setFilter({ ...filter, status: e.target.value }); setPage(1); }} className="select text-xs max-w-[140px] py-1.5">
                 <option value="">All</option>
                 <option>Pending</option><option>On Track</option><option>Late</option><option>Submitted</option><option>Acknowledged</option>
               </select>
             </div>
+            <div className="flex-1 max-w-xs"><SearchBar value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search submissions..." /></div>
           </div>
           <div className="card overflow-hidden">
-            {submissions.length === 0 ? (
+            {filteredSubmissions.length === 0 ? (
               <p className="text-sm text-slate-400 p-8 text-center">No submissions found. Create your first submission tracker.</p>
             ) : (
               <table className="w-full">
@@ -240,7 +253,7 @@ export default function CompliancePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-border">
-                  {submissions.map(s => {
+                  {pagedSubmissions.map(s => {
                     const isLate = s.status !== 'Submitted' && s.status !== 'Acknowledged' && new Date(s.due_date) < now;
                     return (
                       <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${isLate ? 'bg-red-50/30' : ''}`}>
@@ -263,6 +276,7 @@ export default function CompliancePage() {
                 </tbody>
               </table>
             )}
+            <Pagination page={page} totalPages={submissionTotalPages} onChange={setPage} />
           </div>
         </div>
       )}

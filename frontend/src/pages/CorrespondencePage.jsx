@@ -1,13 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getTeams, getCorrespondence, createCorrespondence, updateCorrespondence, deleteCorrespondence } from '../api/client';
 import { useToast } from '../components/Toast';
+import useConfirm from '../hooks/useConfirm';
+import useBulkSelect from '../hooks/useBulkSelect';
+import useExport from '../hooks/useExport';
+import SearchBar from '../components/SearchBar';
+import Pagination from '../components/Pagination';
 
 const CATEGORIES = ['General', 'Request', 'Report', 'Memo', 'Endorsement', 'Transmittal', 'Others'];
 const STATUSES = ['Draft', 'Sent', 'Received', 'For Follow-up', 'Closed', 'Archived'];
 const STATUS_COLORS = { Draft: 'badge-gray', Sent: 'badge-blue', Received: 'badge-green', 'For Follow-up': 'badge-amber', Closed: 'badge-purple', Archived: 'badge-red' };
 
+const PAGE_SIZE = 10;
+
 export default function CorrespondencePage() {
   const toast = useToast();
+  const { confirm: confirmAction, dialog: confirmDialog } = useConfirm();
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState('');
   const [items, setItems] = useState([]);
@@ -15,7 +23,12 @@ export default function CorrespondencePage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [filters, setFilters] = useState({ type: '', status: '', category: '' });
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [form, setForm] = useState({ teamId: '', type: 'Outgoing', date: new Date().toISOString().split('T')[0], subject: '', recipientOrSender: '', referenceNumber: '', category: 'General', status: 'Draft', content: '' });
+
+  const { selected, toggle, toggleAll, clear, allSelected, someSelected } = useBulkSelect(items, 'id');
+  const { exportCSV } = useExport('correspondence');
 
   useEffect(() => { getTeams().then(setTeams).catch(() => {}).finally(() => setLoading(false)); }, []);
 
@@ -28,6 +41,14 @@ export default function CorrespondencePage() {
   };
 
   useEffect(() => { loadItems(); }, [selectedTeam, filters]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return q ? items.filter(i => (i.subject || '').toLowerCase().includes(q) || (i.recipient_or_sender || '').toLowerCase().includes(q) || (i.reference_number || '').toLowerCase().includes(q)) : items;
+  }, [items, search]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -46,22 +67,43 @@ export default function CorrespondencePage() {
   };
 
   const handleEdit = (item) => {
-    setForm({
-      teamId: item.team_id, type: item.type, date: item.date?.split('T')[0] || '', subject: item.subject,
-      recipientOrSender: item.recipient_or_sender, referenceNumber: item.reference_number || '',
-      category: item.category, status: item.status, content: item.content || '',
-    });
+    setForm({ teamId: item.team_id, type: item.type, date: item.date?.split('T')[0] || '', subject: item.subject, recipientOrSender: item.recipient_or_sender, referenceNumber: item.reference_number || '', category: item.category, status: item.status, content: item.content || '' });
     setEditing(item);
     setShowForm(true);
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this correspondence?')) return;
-    try { await deleteCorrespondence(id); await loadItems(); } catch (err) { toast(err.message); }
+    if (!await confirmAction('Delete correspondence', 'Are you sure you want to delete this correspondence?')) return;
+    try {
+      await deleteCorrespondence(id);
+      await loadItems();
+    } catch (err) { toast(err.message); }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!await confirmAction(`Delete ${selected.size} items`, `Are you sure you want to delete ${selected.size} correspondence entries?`)) return;
+    try {
+      await Promise.all(Array.from(selected).map(id => deleteCorrespondence(id)));
+      toast(`Deleted ${selected.size} items`, 'success');
+      clear();
+      await loadItems();
+    } catch (err) { toast(err.message); }
   };
 
   const handleStatusUpdate = async (id, status) => {
     try { await updateCorrespondence(id, { status }); await loadItems(); } catch (err) { toast(err.message); }
+  };
+
+  const handleExport = () => {
+    exportCSV(items, [
+      { label: 'Date', accessor: i => new Date(i.date).toLocaleDateString() },
+      { label: 'Type', accessor: i => i.type },
+      { label: 'Subject', accessor: i => i.subject },
+      { label: 'Recipient/Sender', accessor: i => i.recipient_or_sender },
+      { label: 'Category', accessor: i => i.category },
+      { label: 'Status', accessor: i => i.status },
+    ]);
   };
 
   if (loading) return <Spinner />;
@@ -78,7 +120,7 @@ export default function CorrespondencePage() {
       <div className="flex items-center gap-4 bg-white rounded-xl border border-surface-border p-3 flex-wrap">
         <div className="flex items-center gap-2">
           <label className="text-xs font-semibold text-slate-500">Team:</label>
-          <select value={selectedTeam} onChange={e => setSelectedTeam(e.target.value)} className="select text-sm py-1.5 max-w-[180px]">
+          <select value={selectedTeam} onChange={e => { setSelectedTeam(e.target.value); setPage(1); }} className="select text-sm py-1.5 max-w-[180px]">
             <option value="">Select team...</option>
             {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
@@ -87,20 +129,20 @@ export default function CorrespondencePage() {
           <>
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-slate-500">Type:</label>
-              <select value={filters.type} onChange={e => setFilters({ ...filters, type: e.target.value })} className="select text-xs py-1.5 max-w-[100px]">
+              <select value={filters.type} onChange={e => { setFilters({ ...filters, type: e.target.value }); setPage(1); }} className="select text-xs py-1.5 max-w-[100px]">
                 <option value="">All</option><option>Outgoing</option><option>Incoming</option>
               </select>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-slate-500">Status:</label>
-              <select value={filters.status} onChange={e => setFilters({ ...filters, status: e.target.value })} className="select text-xs py-1.5 max-w-[120px]">
+              <select value={filters.status} onChange={e => { setFilters({ ...filters, status: e.target.value }); setPage(1); }} className="select text-xs py-1.5 max-w-[120px]">
                 <option value="">All</option>
                 {STATUSES.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs font-semibold text-slate-500">Category:</label>
-              <select value={filters.category} onChange={e => setFilters({ ...filters, category: e.target.value })} className="select text-xs py-1.5 max-w-[120px]">
+              <select value={filters.category} onChange={e => { setFilters({ ...filters, category: e.target.value }); setPage(1); }} className="select text-xs py-1.5 max-w-[120px]">
                 <option value="">All</option>
                 {CATEGORIES.map(c => <option key={c}>{c}</option>)}
               </select>
@@ -123,59 +165,43 @@ export default function CorrespondencePage() {
             <form onSubmit={handleSave} className="card p-5 space-y-4 animate-slide-down">
               <h3 className="font-bold text-slate-900">{editing ? 'Edit Correspondence' : 'New Correspondence'}</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="label">Type</label>
-                  <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="select">
-                    <option>Outgoing</option><option>Incoming</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Date</label>
-                  <input required type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="input" />
-                </div>
-                <div>
-                  <label className="label">Category</label>
-                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="select">
-                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="label">Subject *</label>
-                  <input required value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} className="input" placeholder="Subject line" />
-                </div>
-                <div>
-                  <label className="label">Ref #</label>
-                  <input value={form.referenceNumber} onChange={e => setForm({ ...form, referenceNumber: e.target.value })} className="input" placeholder="Optional" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="label">{form.type === 'Outgoing' ? 'Recipient' : 'Sender'} *</label>
-                  <input required value={form.recipientOrSender} onChange={e => setForm({ ...form, recipientOrSender: e.target.value })} className="input" placeholder={form.type === 'Outgoing' ? 'To whom sent' : 'From whom received'} />
-                </div>
-                <div>
-                  <label className="label">Status</label>
-                  <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} className="select">
-                    {STATUSES.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="md:col-span-3">
-                  <label className="label">Content (optional)</label>
-                  <textarea value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} className="textarea" rows={3} />
-                </div>
+                <div><label className="label">Type</label><select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className="select"><option>Outgoing</option><option>Incoming</option></select></div>
+                <div><label className="label">Date</label><input required type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="input" /></div>
+                <div><label className="label">Category</label><select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="select">{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+                <div className="md:col-span-2"><label className="label">Subject *</label><input required value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} className="input" placeholder="Subject line" /></div>
+                <div><label className="label">Ref #</label><input value={form.referenceNumber} onChange={e => setForm({ ...form, referenceNumber: e.target.value })} className="input" placeholder="Optional" /></div>
+                <div className="md:col-span-2"><label className="label">{form.type === 'Outgoing' ? 'Recipient' : 'Sender'} *</label><input required value={form.recipientOrSender} onChange={e => setForm({ ...form, recipientOrSender: e.target.value })} className="input" placeholder={form.type === 'Outgoing' ? 'To whom sent' : 'From whom received'} /></div>
+                <div><label className="label">Status</label><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} className="select">{STATUSES.map(s => <option key={s}>{s}</option>)}</select></div>
+                <div className="md:col-span-3"><label className="label">Content (optional)</label><textarea value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} className="textarea" rows={3} /></div>
               </div>
-              <div className="flex gap-2">
-                <button type="submit" className="btn-primary btn-sm">{editing ? 'Update' : 'Create'}</button>
-                <button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="btn-secondary btn-sm">Cancel</button>
-              </div>
+              <div className="flex gap-2"><button type="submit" className="btn-primary btn-sm">{editing ? 'Update' : 'Create'}</button><button type="button" onClick={() => { setShowForm(false); setEditing(null); }} className="btn-secondary btn-sm">Cancel</button></div>
             </form>
           )}
 
+          <div className="flex items-center gap-3">
+            <div className="flex-1 max-w-xs"><SearchBar value={search} onChange={v => { setSearch(v); setPage(1); }} placeholder="Search by subject, name, ref #..." /></div>
+            {someSelected && (
+              <>
+                <span className="text-xs text-slate-500 font-medium">{selected.size} selected</span>
+                <button onClick={handleBulkDelete} className="btn-danger btn-sm">Delete selected</button>
+              </>
+            )}
+            <button onClick={handleExport} disabled={items.length === 0} className="btn-secondary btn-sm ml-auto">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+              Export
+            </button>
+          </div>
+
           <div className="card overflow-hidden">
-            {items.length === 0 ? (
-              <p className="text-sm text-slate-400 p-8 text-center">No correspondence found. Create your first entry.</p>
+            {paged.length === 0 ? (
+              <p className="text-sm text-slate-400 p-8 text-center">No correspondence found.</p>
             ) : (
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-surface-border bg-slate-50/50">
+                    <th className="table-header w-10">
+                      <input type="checkbox" checked={allSelected} onChange={toggleAll} className="rounded border-slate-300 text-brand-500 focus:ring-brand-500" />
+                    </th>
                     <th className="table-header">Date</th>
                     <th className="table-header">Type</th>
                     <th className="table-header">Subject</th>
@@ -186,18 +212,18 @@ export default function CorrespondencePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-surface-border">
-                  {items.map(item => (
+                  {paged.map(item => (
                     <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="table-cell font-medium text-slate-600">{new Date(item.date).toLocaleDateString()}</td>
                       <td className="table-cell">
-                        <span className={`badge text-xs ${item.type === 'Outgoing' ? 'badge-blue' : 'badge-amber'}`}>{item.type}</span>
+                        <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} className="rounded border-slate-300 text-brand-500 focus:ring-brand-500" />
                       </td>
+                      <td className="table-cell font-medium text-slate-600">{new Date(item.date).toLocaleDateString()}</td>
+                      <td className="table-cell"><span className={`badge text-xs ${item.type === 'Outgoing' ? 'badge-blue' : 'badge-amber'}`}>{item.type}</span></td>
                       <td className="table-cell font-semibold max-w-[250px] truncate" title={item.subject}>{item.subject}</td>
                       <td className="table-cell text-slate-600">{item.recipient_or_sender}</td>
                       <td className="table-cell"><span className="badge-gray text-xs">{item.category}</span></td>
                       <td className="table-cell">
-                        <select value={item.status} onChange={e => handleStatusUpdate(item.id, e.target.value)}
-                          className={`text-xs border border-slate-200 rounded-md px-1.5 py-0.5 ${STATUS_COLORS[item.status] || 'text-slate-600'} bg-white`}>
+                        <select value={item.status} onChange={e => handleStatusUpdate(item.id, e.target.value)} className={`text-xs border border-slate-200 rounded-md px-1.5 py-0.5 ${STATUS_COLORS[item.status] || 'text-slate-600'} bg-white`}>
                           {STATUSES.map(s => <option key={s}>{s}</option>)}
                         </select>
                       </td>
@@ -213,8 +239,11 @@ export default function CorrespondencePage() {
               </table>
             )}
           </div>
+
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
         </>
       )}
+      {confirmDialog}
     </div>
   );
 }

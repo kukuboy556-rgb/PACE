@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../hooks/useTheme';
 import { getAlerts, getUnreadCount, markAlertRead, markAllAlertsRead } from '../api/client';
+import ConfirmationDialog from './ConfirmationDialog';
 
 const navItems = [
   { label: 'Dashboard', path: '/', icon: GridIcon },
@@ -16,22 +19,27 @@ const navItems = [
 
 export default function Layout() {
   const { user, logout, isPDO, isSchoolHead } = useAuth();
+  const { dark, toggle: toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
   const [unread, setUnread] = useState(0);
   const [showAlerts, setShowAlerts] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const alertRef = useRef(null);
 
-  const loadAlerts = async () => {
+  const loadAlerts = useCallback(async () => {
     try {
       const [a, u] = await Promise.all([getAlerts(), getUnreadCount()]);
       setAlerts(a.slice(0, 10));
       setUnread(u.count);
-    } catch {}
-  };
+    } catch (err) {
+      console.error('Failed to load alerts:', err);
+    }
+  }, []);
 
-  useEffect(() => { loadAlerts(); }, [location]);
+  useEffect(() => { loadAlerts(); }, [location, loadAlerts]);
 
   useEffect(() => {
     const handleClick = (e) => { if (alertRef.current && !alertRef.current.contains(e.target)) setShowAlerts(false); };
@@ -39,87 +47,163 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  const handleLogout = async () => { await logout(); navigate('/login'); };
+  useEffect(() => { setSidebarOpen(false); }, [location]);
+
+  const shortcuts = useMemo(() => [
+    { key: '/', handler: () => { const s = document.querySelector('[data-search-input]'); if (s) s.focus(); } },
+    { key: 'Escape', handler: () => setShowAlerts(false) },
+    { key: 'd', ctrl: true, handler: () => toggleTheme() },
+  ], [toggleTheme]);
+
+  useKeyboardShortcuts(shortcuts);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch {
+      navigate('/login');
+    }
+    setShowLogoutConfirm(false);
+  };
 
   const handleMarkRead = async (id) => {
-    await markAlertRead(id);
-    await loadAlerts();
+    try {
+      await markAlertRead(id);
+      await loadAlerts();
+    } catch (err) {
+      console.error('Failed to mark alert read:', err);
+    }
   };
 
   const handleMarkAllRead = async () => {
-    await markAllAlertsRead();
-    await loadAlerts();
+    try {
+      await markAllAlertsRead();
+      await loadAlerts();
+    } catch (err) {
+      console.error('Failed to mark all alerts read:', err);
+    }
   };
 
   const visibleNav = navItems.filter(item => !item.pdoOnly || isPDO);
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-surface">
-      <aside className="w-56 bg-sidebar-bg flex flex-col flex-shrink-0">
-        <div className="px-4 py-4 border-b border-white/5">
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm">P</div>
-            <div>
-              <span className="text-white font-bold text-base tracking-tight">PACE</span>
-              <span className="block text-[10px] text-sidebar-text font-medium -mt-0.5">Coordination Engine</span>
-            </div>
+  const sidebar = (
+    <aside className="w-56 bg-sidebar-bg flex flex-col flex-shrink-0 h-full">
+      <div className="px-4 py-4 border-b border-white/5 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white font-extrabold text-base shadow-sm">P</div>
+          <div>
+            <span className="text-white font-bold text-base tracking-tight">PACE</span>
+            <span className="block text-[10px] text-sidebar-text font-medium -mt-0.5">Coordination Engine</span>
+          </div>
+        </Link>
+        <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 text-sidebar-text hover:text-white rounded-lg hover:bg-sidebar-hover transition-colors">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <nav className="flex-1 px-2.5 py-4 space-y-0.5 overflow-y-auto">
+        {visibleNav.map(item => (
+          <Link key={item.path} to={item.path}
+            className={location.pathname === item.path ? 'sidebar-link-active' : 'sidebar-link-inactive'}>
+            <item.icon />
+            {item.label}
           </Link>
+        ))}
+      </nav>
+
+      <div className="px-3 py-3 border-t border-white/5">
+        <div className="flex items-center gap-2.5 mb-2 px-1">
+              <Link to="/profile" className="flex items-center gap-2.5 flex-1 min-w-0 hover:opacity-80 transition-opacity">
+                <div className="w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center text-brand-400 text-sm font-bold">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-200 truncate leading-tight">{user?.name}</p>
+                  <p className="text-[11px] text-sidebar-text truncate">{user?.email}</p>
+                </div>
+              </Link>
         </div>
-
-        <nav className="flex-1 px-2.5 py-4 space-y-0.5 overflow-y-auto">
-          {visibleNav.map(item => (
-            <Link key={item.path} to={item.path}
-              className={location.pathname === item.path ? 'sidebar-link-active' : 'sidebar-link-inactive'}>
-              <item.icon />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="px-3 py-3 border-t border-white/5">
-          <div className="flex items-center gap-2.5 mb-2 px-1">
-            <div className="w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center text-brand-400 text-sm font-bold">
-              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-200 truncate leading-tight">{user?.name}</p>
-              <p className="text-[11px] text-sidebar-text truncate">{user?.email}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 px-1 mb-2">
-            {isPDO && <span className="badge-blue text-[10px]">PDO</span>}
-            {isSchoolHead && <span className="badge-purple text-[10px]">School Head</span>}
-          </div>
-          <button onClick={handleLogout} className="sidebar-link-inactive w-full text-xs">
-            <LogoutIcon /> Sign out
-          </button>
+        <div className="flex items-center gap-1.5 px-1 mb-2">
+          {isPDO && <span className="badge-blue text-[10px]">PDO</span>}
+          {isSchoolHead && <span className="badge-purple text-[10px]">School Head</span>}
         </div>
-      </aside>
+        <button onClick={() => setShowLogoutConfirm(true)} className="sidebar-link-inactive w-full text-xs">
+          <LogoutIcon /> Sign out
+        </button>
+      </div>
+    </aside>
+  );
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-surface-border px-6 py-2.5 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <h2 className="text-sm font-semibold text-slate-500">
-              {navItems.find(n => location.pathname.startsWith(n.path) && n.path !== '/')?.label || (location.pathname === '/' ? 'Dashboard' : '')}
+  return (
+    <div className="flex h-screen overflow-hidden bg-surface dark:bg-surface-dark">
+      <ConfirmationDialog
+        open={showLogoutConfirm}
+        title="Sign out"
+        message="Are you sure you want to sign out?"
+        confirmLabel="Sign out"
+        variant="danger"
+        onConfirm={handleLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
+
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden animate-fade-in" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* Mobile sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 lg:static lg:z-auto lg:block ${sidebarOpen ? 'block' : 'hidden'} animate-slide-in-left lg:animate-none`}>
+        {sidebar}
+      </div>
+
+      {/* Desktop sidebar */}
+      <div className="hidden lg:block flex-shrink-0">
+        {sidebar}
+      </div>
+
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <header className="bg-white dark:bg-surface-dark-card border-b border-surface-border dark:border-surface-dark-border px-4 lg:px-6 py-2 flex items-center justify-between flex-shrink-0 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-colors flex-shrink-0">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            </button>
+            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 truncate">
+              {navItems.find(n => n.path !== '/' && (location.pathname === n.path || location.pathname.startsWith(n.path + '/')))?.label || (location.pathname === '/' ? 'Dashboard' : '')}
             </h2>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button onClick={toggleTheme} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-all duration-200" title={dark ? 'Switch to light mode' : 'Switch to dark mode'}>
+              {dark ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                </svg>
+              )}
+            </button>
             <div className="relative" ref={alertRef}>
-              <button onClick={() => setShowAlerts(!showAlerts)} className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all duration-200">
+              <button onClick={() => setShowAlerts(!showAlerts)} className="relative p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg transition-all duration-200">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                 </svg>
                 {unread > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
+                  <span className="absolute -top-0.5 -right-0.5 w-4.5 h-4.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-white dark:ring-surface-dark-card">
                     {unread > 9 ? '9+' : unread}
                   </span>
                 )}
               </button>
 
               {showAlerts && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-dropdown border border-surface-border z-50 max-h-96 overflow-hidden animate-slide-down">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-surface-border">
-                    <h3 className="text-sm font-bold text-slate-900">Notifications</h3>
+                <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-surface-dark-card rounded-xl shadow-dropdown border border-surface-border dark:border-surface-dark-border z-50 max-h-96 overflow-hidden animate-slide-down">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-surface-border dark:border-surface-dark-border">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Notifications</h3>
                     {unread > 0 && <button onClick={handleMarkAllRead} className="text-xs text-brand-500 hover:text-brand-700 font-semibold">Mark all read</button>}
                   </div>
                   <div className="overflow-y-auto max-h-72">
@@ -127,11 +211,11 @@ export default function Layout() {
                       <p className="text-sm text-slate-400 p-6 text-center">No notifications</p>
                     ) : alerts.map(a => (
                       <Link key={a.id} to={a.link || '#'} onClick={() => handleMarkRead(a.id)}
-                        className={`flex items-start gap-3 px-4 py-3 hover:bg-slate-50 border-b border-surface-border last:border-0 transition-colors ${!a.is_read ? 'bg-brand-50/50' : ''}`}>
+                        className={`flex items-start gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/30 border-b border-surface-border dark:border-surface-dark-border last:border-0 transition-colors ${!a.is_read ? 'bg-brand-50/50 dark:bg-brand-500/5' : ''}`}>
                         <AlertIcon type={a.type} />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-slate-900">{a.title}</p>
-                          {a.message && <p className="text-xs text-slate-500 mt-0.5">{a.message}</p>}
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{a.title}</p>
+                          {a.message && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{a.message}</p>}
                           <p className="text-[10px] text-slate-400 mt-1">{timeAgo(new Date(a.created_at))}</p>
                         </div>
                         {!a.is_read && <div className="w-2 h-2 rounded-full bg-brand-500 flex-shrink-0 mt-2" />}
@@ -141,12 +225,12 @@ export default function Layout() {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2.5 pl-3 ml-1 border-l border-surface-border">
-              <div className="text-right">
-                <p className="text-xs font-semibold text-slate-700 leading-tight">{user?.name}</p>
-                <p className="text-[10px] text-slate-400">{isPDO ? 'PDO' : isSchoolHead ? 'School Head' : 'Coordinator'}</p>
+            <div className="flex items-center gap-2.5 pl-3 ml-1 border-l border-surface-border dark:border-surface-dark-border max-w-[200px] lg:max-w-none">
+              <div className="text-right min-w-0 hidden sm:block">
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-tight truncate">{user?.name}</p>
+                <p className="text-[10px] text-slate-400 truncate">{isPDO ? 'PDO' : isSchoolHead ? 'School Head' : 'Coordinator'}</p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white text-sm font-bold">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                 {user?.name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
             </div>
@@ -154,7 +238,7 @@ export default function Layout() {
         </header>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-8 py-7">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6 lg:py-7">
             <Outlet />
           </div>
         </div>
@@ -172,7 +256,7 @@ function AlertIcon({ type }) {
     info: 'text-slate-500',
   };
   return (
-    <div className={`w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0 ${colors[type] || colors.info}`}>
+    <div className={`w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700/50 flex items-center justify-center flex-shrink-0 ${colors[type] || colors.info}`}>
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         {type === 'overdue' ? (
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -191,6 +275,7 @@ function AlertIcon({ type }) {
 }
 
 function timeAgo(date) {
+  if (!(date instanceof Date) || isNaN(date.getTime())) return '';
   const diff = Date.now() - date.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'Just now';

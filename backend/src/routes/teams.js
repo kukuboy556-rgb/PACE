@@ -106,4 +106,40 @@ router.delete('/:id/members/:userId', authenticate, requireRole('PDO'), async (r
   res.json({ message: 'Member removed' });
 });
 
+router.get('/:teamId/projects', authenticate, async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM projects WHERE team_id = $1 ORDER BY created_at DESC',
+    [req.params.teamId]
+  );
+  res.json(rows);
+});
+
+router.post('/:teamId/projects', authenticate, requireRole('PDO', 'Coordinator'), async (req, res) => {
+  const { title, programType, startDate, targetEndDate } = req.body;
+  if (!title || !programType) {
+    return res.status(400).json({ error: 'Title and program type are required' });
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO projects (team_id, title, program_type, start_date, target_end_date)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [req.params.teamId, title, programType, startDate || null, targetEndDate || null]
+  );
+  res.status(201).json(rows[0]);
+});
+
+router.get('/:teamId/labels', authenticate, async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM labels WHERE team_id = $1 ORDER BY name', [req.params.teamId]);
+  res.json(rows);
+});
+
+router.post('/:teamId/labels', authenticate, requireRole('PDO', 'Coordinator'), async (req, res) => {
+  const { name, color } = req.body;
+  if (!name) return res.status(400).json({ error: 'Label name is required' });
+  const { rows } = await pool.query(
+    'INSERT INTO labels (team_id, name, color) VALUES ($1, $2, $3) RETURNING *',
+    [req.params.teamId, name, color || '#3b82f6']
+  );
+  res.status(201).json(rows[0]);
+});
+
 module.exports = router;

@@ -4,29 +4,6 @@ const { authenticate, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/:projectId/tasks', authenticate, async (req, res) => {
-  const { rows } = await pool.query(
-    `SELECT t.*, u.name as assignee_name FROM tasks t
-     LEFT JOIN users u ON u.id = t.assignee_id
-     WHERE t.project_id = $1
-     ORDER BY t.position ASC, t.created_at DESC`,
-    [req.params.projectId]
-  );
-  res.json(rows);
-});
-
-router.post('/:projectId/tasks', authenticate, requireRole('PDO', 'Coordinator'), async (req, res) => {
-  const { title, description, assigneeId, dueDate, status } = req.body;
-  if (!title) return res.status(400).json({ error: 'Task title is required' });
-
-  const { rows } = await pool.query(
-    `INSERT INTO tasks (project_id, assignee_id, title, description, due_date, status)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [req.params.projectId, assigneeId || null, title, description || null, dueDate || null, status || 'To Do']
-  );
-  res.status(201).json(rows[0]);
-});
-
 router.patch('/:id', authenticate, requireRole('PDO', 'Coordinator'), async (req, res) => {
   const { title, description, assigneeId, dueDate, status, position } = req.body;
 

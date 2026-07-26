@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getTeams, getStakeholders, createStakeholder, updateStakeholder, deleteStakeholder, getEngagementLogs, createEngagementLog } from '../api/client';
 import { useToast } from '../components/Toast';
+import useConfirm from '../hooks/useConfirm';
+import SearchBar from '../components/SearchBar';
 
 const TYPES = ['Parent', 'Community', 'LGU', 'NGO', 'Private Sector', 'SDO', 'Other'];
 const ENGAGEMENT_TYPES = ['Meeting', 'Orientation', 'Consultation', 'Mobilization', 'Advocacy', 'Referral', 'Other'];
@@ -19,6 +21,7 @@ export default function StakeholderPage() {
   const [form, setForm] = useState({ teamId: '', name: '', organization: '', type: 'Community', contactPerson: '', contactNumber: '', email: '', address: '', notes: '' });
   const [engageForm, setEngageForm] = useState({ engagementDate: '', engagementType: 'Meeting', notes: '', outcome: '' });
   const [filter, setFilter] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => { getTeams().then(setTeams).catch(() => {}).finally(() => setLoading(false)); }, []);
 
@@ -32,8 +35,13 @@ export default function StakeholderPage() {
 
   useEffect(() => { loadStakeholders(); }, [selectedTeam, filter]);
 
+  const filteredStakeholders = useMemo(() => {
+    const q = search.toLowerCase();
+    return q ? stakeholders.filter(s => (s.name || '').toLowerCase().includes(q) || (s.organization || '').toLowerCase().includes(q) || (s.contact_person || '').toLowerCase().includes(q)) : stakeholders;
+  }, [stakeholders, search]);
+
   const loadLogs = async (id) => {
-    try { const l = await getEngagementLogs({ stakeholderId: id }); setLogs(l); } catch {}
+    try { const l = await getEngagementLogs({ stakeholderId: id }); setLogs(l); } catch (err) { console.error('Failed to load engagement logs:', err); }
   };
 
   const handleCreate = async (e) => {
@@ -112,10 +120,10 @@ export default function StakeholderPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-3">
-            <h2 className="text-lg font-bold text-slate-900">Directory ({stakeholders.length})</h2>
-            {stakeholders.length === 0 ? (
-              <div className="card p-6 text-center"><p className="text-sm text-slate-400">No stakeholders yet.</p></div>
-            ) : stakeholders.map(s => (
+            <h2 className="text-lg font-bold text-slate-900">Directory ({filteredStakeholders.length})</h2>
+            {filteredStakeholders.length === 0 ? (
+              <div className="card p-6 text-center"><p className="text-sm text-slate-400">No stakeholders found.</p></div>
+            ) : filteredStakeholders.map(s => (
               <div key={s.id} onClick={() => selectStakeholder(s)}
                 className={`card p-4 cursor-pointer transition-all hover:shadow-card-hover ${selected?.id === s.id ? 'ring-2 ring-brand-500' : ''}`}>
                 <div className="flex items-start justify-between mb-2">

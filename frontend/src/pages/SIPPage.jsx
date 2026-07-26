@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { getTeams, getSipGoals, createSipGoal, getSipGoal, updateSipGoal, deleteSipGoal, createSipActivity, updateSipActivity, createSipBudgetLine, updateSipBudgetLine, getSipSummary, savePhysicalFinancial, getPhysicalFinancial } from '../api/client';
+import { getTeams, getSipGoals, createSipGoal, getSipGoal, deleteSipGoal, createSipActivity, updateSipActivity, updateSipBudgetLine, getSipSummary, savePhysicalFinancial, getPhysicalFinancial } from '../api/client';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../hooks/useAuth';
+import useConfirm from '../hooks/useConfirm';
 
 const PRIORITY_AREAS = ['Access', 'Quality', 'Governance', 'Equity', 'Resilience'];
 const STATUS_COLORS = { 'Not Started': 'badge-gray', 'In Progress': 'badge-blue', 'Completed': 'badge-green', 'Delayed': 'badge-red', 'Cancelled': 'badge-amber' };
@@ -9,6 +10,7 @@ const STATUS_COLORS = { 'Not Started': 'badge-gray', 'In Progress': 'badge-blue'
 export default function SIPPage() {
   const toast = useToast();
   const { isPDO } = useAuth();
+  const { confirm: confirmAction, dialog: confirmDialog } = useConfirm();
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState('');
   const [schoolYear, setSchoolYear] = useState('2025-2026');
@@ -22,26 +24,28 @@ export default function SIPPage() {
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [showPfForm, setShowPfForm] = useState(false);
   const [goalForm, setGoalForm] = useState({ teamId: '', schoolYear: '2025-2026', goal: '', priorityArea: 'Access', targetMetric: '', baselineValue: '', targetValue: '', targetDate: '' });
-  const [activityForm, setActivityForm] = useState({ goalId: '', activity: '', quarter: 1, responsiblePerson: '', targetCompletion: '' });
+  const [activityForm, setActivityForm] = useState({ activity: '', quarter: 1, responsiblePerson: '', targetCompletion: '' });
   const [pfForm, setPfForm] = useState({ teamId: '', schoolYear: '2025-2026', month: new Date().getMonth() + 1, fundSource: 'MOOE', physicalAccomplishment: '', financialObligation: '', financialDisbursement: '' });
 
   useEffect(() => {
     getTeams().then(setTeams).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const loadGoals = async () => {
+  useEffect(() => {
+    let cancelled = false;
     if (!selectedTeam || !schoolYear) return;
-    try {
-      const [g, s, pf] = await Promise.all([
-        getSipGoals({ teamId: selectedTeam, schoolYear }),
-        getSipSummary({ teamId: selectedTeam, schoolYear }),
-        getPhysicalFinancial({ teamId: selectedTeam, schoolYear }),
-      ]);
-      setGoals(g); setSummary(s); setPfRecords(pf);
-    } catch (err) { toast(err.message); }
-  };
-
-  useEffect(() => { loadGoals(); }, [selectedTeam, schoolYear]);
+    (async () => {
+      try {
+        const [g, s, pf] = await Promise.all([
+          getSipGoals({ teamId: selectedTeam, schoolYear }),
+          getSipSummary({ teamId: selectedTeam, schoolYear }),
+          getPhysicalFinancial({ teamId: selectedTeam, schoolYear }),
+        ]);
+        if (!cancelled) { setGoals(g); setSummary(s); setPfRecords(pf); }
+      } catch (err) { if (!cancelled) toast(err.message); }
+    })();
+    return () => { cancelled = true; };
+  }, [selectedTeam, schoolYear]);
 
   const handleCreateGoal = async (e) => {
     e.preventDefault();
@@ -56,15 +60,20 @@ export default function SIPPage() {
 
   const handleCreateActivity = async (e) => {
     e.preventDefault();
+    if (!selectedGoal) return;
     try {
-      await createSipActivity(activityForm);
+      await createSipActivity({ goalId: selectedGoal.id, ...activityForm });
       setShowActivityForm(false);
-      setActivityForm({ goalId: selectedGoal?.id || '', activity: '', quarter: 1, responsiblePerson: '', targetCompletion: '' });
+      setActivityForm({ activity: '', quarter: 1, responsiblePerson: '', targetCompletion: '' });
       toast('Activity added', 'success');
       const g = await getSipGoal(selectedGoal.id);
       setSelectedGoal(g);
     } catch (err) { toast(err.message); }
   };
+
+  useEffect(() => {
+    if (selectedGoal) setShowActivityForm(false);
+  }, [selectedGoal]);
 
   const handleUpdateActivityStatus = async (id, status) => {
     try {
@@ -107,7 +116,7 @@ export default function SIPPage() {
   };
 
   const handleDeleteGoal = async (id) => {
-    if (!confirm('Delete this goal and all its activities?')) return;
+    if (!await confirmAction('Delete goal', 'Are you sure you want to delete this goal and all its activities?')) return;
     try {
       await deleteSipGoal(id);
       setSelectedGoal(null);
@@ -276,7 +285,7 @@ export default function SIPPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h2 className="text-lg font-bold text-slate-900">AIP Activities</h2>
-                      <button onClick={() => { setActivityForm({ ...activityForm, goalId: selectedGoal.id }); setShowActivityForm(true); }} className="btn-primary btn-sm">+ Activity</button>
+                      <button onClick={() => { setActivityForm({ activity: '', quarter: 1, responsiblePerson: '', targetCompletion: '' }); setShowActivityForm(true); }} className="btn-primary btn-sm">+ Activity</button>
                     </div>
                     {showActivityForm && (
                       <form onSubmit={handleCreateActivity} className="card p-4 space-y-3 animate-slide-down">
@@ -500,6 +509,7 @@ export default function SIPPage() {
           </div>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }
